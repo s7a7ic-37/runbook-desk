@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: runbook-desk
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_ORIGIN
+        value: https://runbook.artemislab.co.uk
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: MODEL_CALL_LIMIT
+        value: '0'

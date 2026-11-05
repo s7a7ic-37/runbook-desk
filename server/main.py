@@ -182,7 +182,7 @@ def create_app(settings=None):
     @app.post('/api/workspace')
     def start_workspace(request: Request, response: Response):
         try:
-            existing = workspace(request)
+            workspace(request)
             return {'ready': True}
         except HTTPException as error:
             if error.status_code != 401:
@@ -190,6 +190,13 @@ def create_app(settings=None):
         token = secrets.token_hex(32)
         with db.connection(settings.database_url) as conn:
             conn.execute('SELECT pg_advisory_xact_lock(720051)')
+            # Demo workspaces expire with their cookie; clear their data on the next workspace creation.
+            conn.execute('''DELETE FROM runbook_desk.reviews WHERE case_id IN
+                (SELECT id FROM runbook_desk.cases WHERE workspace_id IN
+                (SELECT id FROM runbook_desk.workspaces WHERE expires_at <= now()))''')
+            conn.execute('''DELETE FROM runbook_desk.cases WHERE workspace_id IN
+                (SELECT id FROM runbook_desk.workspaces WHERE expires_at <= now())''')
+            conn.execute('DELETE FROM runbook_desk.workspaces WHERE expires_at <= now()')
             count = conn.execute('SELECT count(*) AS n FROM runbook_desk.workspaces').fetchone()['n']
             if count >= 2000:
                 problem(429, 'workspace_limit', 'This demo is full. Please try again later.')

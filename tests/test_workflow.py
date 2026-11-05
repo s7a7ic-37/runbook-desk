@@ -214,3 +214,27 @@ def test_production_cookie_is_secure_and_unknown_workspace_denied():
         assert client.get('/api/cases').status_code == 200
     with pytest.raises(ValueError):
         Settings(URL, call_limit=21)
+
+
+def test_expired_workspace_cleanup_preserves_other_cases(clients):
+    expired, active = clients(1, lambda request: completed()), clients()
+    case = new_case(expired)
+    route = f"/api/cases/{case['id']}"
+    draft = expired.post(route + '/generate').json()
+    assert expired.post(route + '/review', json={
+        'version': draft['version'], 'decision': 'approved',
+        'reply': draft['reply'], 'note': 'Sources checked.'}).status_code == 200
+    other = new_case(active)
+    with db.connection(URL) as conn:
+        conn.execute("UPDATE runbook_desk.workspaces SET expires_at=now()-interval '1 minute' WHERE id=(SELECT workspace_id FROM runbook_desk.cases WHERE id=%s)", (case['id'],))
+    clients()
+    assert expired.get(route).status_code == 401
+    assert active.get(f"/api/cases/{other['id']}").status_code == 200
+    with db.connection(URL) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM runbook_desk.reviews').fetchone()['n'] == 0
+        run = conn.execute('SELECT case_id,workspace_id FROM runbook_desk.runs').fetchone()
+        assert run == {'case_id': None, 'workspace_id': None}
+        assert conn.execute('SELECT count(*) AS n FROM runbook_desk.cases').fetchone()['n'] == 1
+    later = clients(1)
+    later_case = new_case(later)
+    assert later.post(f"/api/cases/{later_case['id']}/generate").status_code == 429

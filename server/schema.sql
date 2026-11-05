@@ -27,8 +27,8 @@ CREATE INDEX IF NOT EXISTS cases_workspace_created ON runbook_desk.cases(workspa
 
 CREATE TABLE IF NOT EXISTS runbook_desk.runs (
     id uuid PRIMARY KEY,
-    case_id uuid NOT NULL REFERENCES runbook_desk.cases(id),
-    workspace_id uuid NOT NULL REFERENCES runbook_desk.workspaces(id),
+    case_id uuid REFERENCES runbook_desk.cases(id) ON DELETE SET NULL,
+    workspace_id uuid REFERENCES runbook_desk.workspaces(id) ON DELETE SET NULL,
     state text NOT NULL CHECK (state IN ('pending', 'succeeded', 'failed')),
     model text NOT NULL,
     provider_request_id text,

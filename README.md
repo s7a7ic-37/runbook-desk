@@ -55,7 +55,7 @@ Backend tests cover budget reservations, concurrent requests, workspace isolatio
 
 ## Boundaries
 
-This is a portfolio demo, not a customer support system. Use fictional cases only. An anonymous HttpOnly cookie isolates each browser workspace for seven days; there is no user login, team access or account recovery. Data remains in PostgreSQL after cookie expiry until the operator removes it. Limits are 20 cases per workspace, 1,000 cases and 2,000 workspaces overall; a public deployment also needs ingress rate limiting and a retention policy.
+This is a portfolio demo, not a customer support system. Use fictional cases only. An anonymous HttpOnly cookie isolates each browser workspace for seven days; there is no user login, team access or account recovery. Expired workspaces, case text and reviews are removed when the next new workspace is created. Generation metadata is retained without case/workspace links so cleanup cannot reset the lifetime call allowance. Limits are 20 cases per workspace, 1,000 cases and 2,000 workspaces overall; a public deployment also needs ingress rate limiting and a retention policy.
 
 Structured output and valid citations do not establish factual correctness or prevent prompt injection. A person must inspect the full draft and sources. Approval only records a decision; it does not send the reply. `store:false` requests no Responses API application-state storage; provider retention policies still apply.
 
