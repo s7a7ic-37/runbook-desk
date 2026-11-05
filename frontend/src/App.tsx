@@ -23,18 +23,18 @@ export default function App() {
   const caseForm = useRef<HTMLFormElement>(null);
   const reviewForm = useRef<HTMLFormElement>(null);
 
-  async function refreshHistory() {
-    setHistory(await api<CaseSummary[]>("/cases"));
-  }
-
-  async function initialize() {
-    await api("/workspace", "POST");
+  async function refreshWorkspace() {
     const [settings, cases] = await Promise.all([
       api<Config>("/config"),
       api<CaseSummary[]>("/cases"),
     ]);
     setConfig(settings);
     setHistory(cases);
+  }
+
+  async function initialize() {
+    await api("/workspace", "POST");
+    await refreshWorkspace();
   }
 
   useEffect(() => {
@@ -122,7 +122,7 @@ export default function App() {
     await perform("Opening worked example", async () => {
       setActive(await api<Case>("/examples/" + id, "POST"));
       setView("desk");
-      await refreshHistory();
+      await refreshWorkspace();
     });
   }
 
@@ -148,11 +148,11 @@ export default function App() {
             );
           } catch (e) {
             setActive(await api<Case>("/cases/" + created.id));
-            await refreshHistory();
+            await refreshWorkspace();
             throw e;
           }
         }
-        await refreshHistory();
+        await refreshWorkspace();
       },
     );
   }
@@ -167,7 +167,7 @@ export default function App() {
         setActive(await api<Case>("/cases/" + id));
         throw e;
       } finally {
-        await refreshHistory();
+        await refreshWorkspace();
       }
     });
   }
@@ -183,7 +183,7 @@ export default function App() {
           note,
         }),
       );
-      await refreshHistory();
+      await refreshWorkspace();
       setNotice(
         decision === "approved"
           ? "Review recorded. The reply is ready to copy; nothing has been sent."
