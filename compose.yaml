@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: runbook_desk
+      POSTGRES_USER: runbook
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a private local database password in .env}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U runbook -d runbook_desk]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    ports:
+      - 127.0.0.1:8000:8000
+    environment:
+      DATABASE_URL: postgresql://runbook:${POSTGRES_PASSWORD}@db:5432/runbook_desk
+      APP_ORIGIN: http://localhost:8000
+      COOKIE_SECURE: 'false'
+      OPENAI_API_KEY: ''
+      OPENAI_MODEL: ''
+      MODEL_CALL_LIMIT: '0'
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  database:
