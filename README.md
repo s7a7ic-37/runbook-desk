@@ -51,6 +51,8 @@ npm test
 npm run build
 ```
 
+Run `node --test tests/worker.test.mjs` from the repository root to check the Cloudflare API proxy.
+
 Backend tests cover budget reservations, concurrent requests, workspace isolation, review conflicts, malformed provider output, citations and failure recovery. HTTP calls are intercepted by a mock transport, including tests configured with a nonzero call limit.
 
 ## Boundaries
@@ -59,4 +61,4 @@ This is a portfolio demo, not a customer support system. Use fictional cases onl
 
 Structured output and valid citations do not establish factual correctness or prevent prompt injection. A person must inspect the full draft and sources. Approval only records a decision; it does not send the reply. `store:false` requests no Responses API application-state storage; provider retention policies still apply.
 
-For deployment, serve both frontend and API from one HTTPS origin, use a private PostgreSQL database, set `APP_ORIGIN` to that origin and `COOKIE_SECURE=true`. The Dockerfile builds one service. Hosting and real-provider verification remain pending.
+For deployment, serve both frontend and API from one HTTPS origin, use a private PostgreSQL database, set `APP_ORIGIN` to that origin and `COOKIE_SECURE=true`. The Dockerfile builds one service. `render.yaml` keeps that service on the free plan with model calls disabled. `wrangler.jsonc` serves the built frontend on Cloudflare and forwards `/api/*` to the server using `API_ORIGIN`. This keeps the interface visible while the free API service wakes up. Real-provider verification remains pending.

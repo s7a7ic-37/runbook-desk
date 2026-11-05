@@ -1,0 +1,15 @@
+{
+  "name": "runbook-desk",
+  "main": "worker.js",
+  "account_id": "671415c7ecfa0bd6ad7e3ae53b1fab88",
+  "compatibility_date": "2026-11-05",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{"pattern": "runbook.artemislab.co.uk", "custom_domain": true}],
+  "assets": {
+    "directory": "./frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*"]
+  }
+}
