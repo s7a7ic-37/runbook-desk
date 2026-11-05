@@ -8,7 +8,8 @@ import pytest
 from pydantic import ValidationError
 
 from server import db, llm
-from server.main import EXAMPLES
+from server.main import EXAMPLES, Settings, create_app
+from fastapi.testclient import TestClient
 from server.models import Draft
 from conftest import URL
 
@@ -188,3 +189,28 @@ def test_retry_is_explicit_and_review_version_is_checked(clients):
     assert client.post(route + '/review', json=review).status_code == 409
     review['version'] = result['version']
     assert client.post(route + '/review', json=review).json()['state'] == 'rejected'
+
+
+def test_hourly_attempt_limit_counts_failures(clients):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(503)
+
+    client = clients(20, handler)
+    case = new_case(client)
+    route = f"/api/cases/{case['id']}/generate"
+    assert [client.post(route).status_code for _ in range(4)] == [502, 502, 502, 429]
+    assert len(calls) == 3
+
+
+def test_production_cookie_is_secure_and_unknown_workspace_denied():
+    with TestClient(create_app(Settings(URL)), base_url='https://testserver') as client:
+        assert client.get('/api/cases').status_code == 401
+        response = client.post('/api/workspace')
+        cookie = response.headers['set-cookie']
+        assert 'Secure' in cookie and 'HttpOnly' in cookie and 'SameSite=lax' in cookie
+        assert client.get('/api/cases').status_code == 200
+    with pytest.raises(ValueError):
+        Settings(URL, call_limit=21)
