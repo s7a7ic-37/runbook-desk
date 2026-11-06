@@ -5,6 +5,7 @@
   "compatibility_date": "2026-11-05",
   "workers_dev": false,
   "preview_urls": false,
+  "vars": {"API_ORIGIN": "https://runbook-desk.onrender.com"},
   "routes": [{"pattern": "runbook.artemislab.co.uk", "custom_domain": true}],
   "assets": {
     "directory": "./frontend/dist",

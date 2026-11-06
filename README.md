@@ -1,5 +1,7 @@
 # Runbook Desk
 
+[Open the demo](https://runbook.artemislab.co.uk/). Live model calls are paused; the review workflow is available through labelled examples and saved cases.
+
 A support-case workspace for drafting an investigation from selected runbooks, checking its sources and reviewing a customer reply before approval.
 
 - Save cases and revisit their draft, model attempts and review history.
