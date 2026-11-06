@@ -7,6 +7,12 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: PGPASSWORD
+        sync: false
+      - key: PGSSLMODE
+        value: verify-full
+      - key: PGSSLROOTCERT
+        value: /app/server/certs/supabase-prod-ca-2021.crt
       - key: APP_ORIGIN
         value: https://runbook.artemislab.co.uk
       - key: COOKIE_SECURE
