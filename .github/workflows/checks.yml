@@ -32,5 +32,15 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
       - run: node --test tests/worker.test.mjs
-      - run: npm ci && npm test && npm run build
+      - run: npm ci && npm test
         working-directory: frontend
+      - run: npx playwright install --with-deps --only-shell chromium webkit
+        working-directory: frontend
+      - run: npm run test:browser
+        working-directory: frontend
+      - name: Scan published frontend for credentials
+        run: >-
+          docker run --rm --network none --read-only
+          -v "$PWD/frontend/dist:/scan:ro"
+          ghcr.io/gitleaks/gitleaks:v8.30.1
+          dir /scan --redact=100 --no-banner

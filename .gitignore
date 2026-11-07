@@ -10,3 +10,5 @@ frontend/dist/
 .DS_Store
 .wrangler/
 .dev.vars*
+frontend/test-results/
+frontend/playwright-report/

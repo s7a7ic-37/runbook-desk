@@ -24,6 +24,8 @@ export default function App() {
   const dialog = useRef<HTMLDialogElement>(null);
   const caseForm = useRef<HTMLFormElement>(null);
   const reviewForm = useRef<HTMLFormElement>(null);
+  const changedCase = !active && (title.trim() !== "" || description.trim() !== "" || selected.length !== 1 || selected[0] !== "rb-scope");
+  const changedReview = active?.state === "draft" && (reply !== active.reply || note.trim() !== "");
 
   async function refreshWorkspace() {
     const [settings, cases] = await Promise.all([
@@ -59,6 +61,16 @@ export default function App() {
   }, [active]);
 
   useEffect(() => {
+    if (!changedCase && !changedReview) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = true;
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [changedCase, changedReview]);
+
+  useEffect(() => {
     if (source && dialog.current && !dialog.current.open)
       dialog.current.showModal();
     if (!source && dialog.current?.open) dialog.current.close();
@@ -84,11 +96,11 @@ export default function App() {
   }
 
   function canLeave() {
-    if (!active && (title.trim() || description.trim() || selected.length !== 1 || selected[0] !== "rb-scope")) {
+    if (changedCase) {
       return window.confirm("Discard your unsaved case details?");
     }
     return (
-      !(active?.state === "draft" && (reply !== active.reply || note.trim())) ||
+      !changedReview ||
       window.confirm("Discard your unsaved review edits?")
     );
   }
@@ -230,7 +242,11 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Runbook Desk home">
+        <a className="brand" href="/" aria-label="Runbook Desk home" onClick={event => {
+          if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          newCase();
+        }}>
           <img src="/favicon.svg" width="36" height="36" alt="" />
           <span>
             Runbook <strong>Desk</strong>

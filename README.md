@@ -59,11 +59,15 @@ npm run build
 
 Run `node --test tests/worker.test.mjs` from the repository root to check the Cloudflare API proxy.
 
+From `frontend`, install the test browsers once with `npx playwright install --only-shell chromium webkit`, then run `npm run test:browser`. These production-build checks use synthetic intercepted API responses for navigation guards, edited reviews and the read-only library. CI runs Chromium desktop/mobile and mobile WebKit; the native leave-page warning check is skipped for mobile WebKit, where the event was not emitted.
+
 Backend tests cover budget reservations, concurrent requests, workspace isolation, review conflicts, malformed provider output, citations and failure recovery. HTTP calls are intercepted by a mock transport, including tests configured with a nonzero call limit.
 
 ## Boundaries
 
 Browser requests time out after 90 seconds of active time without automatic retries. If a save or review is interrupted, check case history before repeating it: the server may still have completed the request.
+
+The brand link and in-app case changes use an explicit discard guard. Browser-level exit warnings are best-effort and are unreliable on some mobile browsers or if the browser process is killed; save a case before leaving. Unsaved text is not automatically persisted.
 
 This is a portfolio demo, not a customer support system. Use fictional cases only. An anonymous HttpOnly cookie isolates each browser workspace for seven days; there is no user login, team access or account recovery. Expired workspaces, case text and reviews are removed when the next new workspace is created. Generation metadata is retained without case/workspace links so cleanup cannot reset the lifetime call allowance. Limits are 20 cases per workspace, 1,000 cases and 2,000 workspaces overall; a public deployment also needs ingress rate limiting and a retention policy.
 
