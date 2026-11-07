@@ -40,6 +40,32 @@ test("brand navigation protects case edits and permits an explicit reset", async
   expect(prompts).toHaveLength(count);
 });
 
+test("brand navigation cannot reset a case while its save is in flight", async ({ page }) => {
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  await page.route("**/api/cases", async route => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await pending;
+    const input = route.request().postDataJSON();
+    return route.fulfill({ json: { ...input, id: "synthetic-save", state: "new", mode: "live",
+      version: 1, reply: "", draft: null, reviews: [], runs: [], created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" } });
+  });
+  await page.goto("/");
+  const title = page.getByLabel("Case title", { exact: true });
+  await title.fill("Fictional pending save");
+  await page.locator("#case-description").fill("Fictional incident details for a deliberately delayed save response.");
+  const prompts = [];
+  page.on("dialog", async dialog => { prompts.push(dialog.type()); await dialog.accept(); });
+  try {
+    await page.getByRole("button", { name: "Save case", exact: true }).click();
+    await expect(title).toBeDisabled();
+    await page.getByRole("link", { name: "Runbook Desk home", exact: true }).click();
+    await expect(title).toHaveValue("Fictional pending save");
+    expect(prompts).toEqual([]);
+  } finally { release(); }
+  await expect(page.getByRole("heading", { name: "Fictional pending save", exact: true })).toBeVisible();
+});
+
 test("supported browser navigation warns only while case edits are unsaved", async ({ page, browserName }) => {
   test.skip(browserName === "webkit", "Mobile WebKit did not emit beforeunload in verified emulation; native exit warnings are best-effort.");
   await page.goto("/");

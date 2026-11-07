@@ -106,7 +106,7 @@ export default function App() {
   }
 
   function newCase() {
-    if (!canLeave()) return;
+    if (busy || !canLeave()) return;
     setActive(null);
     setTitle("");
     setDescription("");
