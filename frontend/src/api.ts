@@ -26,12 +26,17 @@ export async function api<T>(
     );
   }
   const data = await response.json().catch(() => null);
-  if (!response.ok)
+  if (!response.ok) {
+    const fallback = response.status === 429
+      ? "The case server is temporarily limiting connections. Wait a minute, then retry."
+      : [502, 503, 504].includes(response.status)
+        ? "The case server is starting or temporarily unavailable. Please wait a minute, then retry."
+        : "The request could not be completed. Please try again.";
     throw new ApiError(
-      data?.error?.message ||
-        "The request could not be completed. Please try again.",
+      data?.error?.message || fallback,
       response.status,
     );
+  }
   if (data === null)
     throw new Error(
       "The server returned an unexpected response. Please try again.",

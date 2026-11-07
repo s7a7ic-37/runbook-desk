@@ -20,7 +20,19 @@ test('API requests keep cookies and surface useful errors without exposing raw r
       return true;
     });
     globalThis.fetch = async () => new Response('private upstream text', {status: 502});
-    await assert.rejects(api('/config'), /The request could not be completed/);
+    await assert.rejects(api('/config'), /starting or temporarily unavailable/);
+    globalThis.fetch = async () => new Response('<html>Just a moment...</html>', {status: 429});
+    await assert.rejects(api('/config'), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 429);
+      assert.match(error.message, /temporarily limiting connections.*Wait a minute/);
+      assert.doesNotMatch(error.message, /html|Just a moment/);
+      return true;
+    });
+    for (const status of [503, 504]) {
+      globalThis.fetch = async () => new Response('private upstream text', {status});
+      await assert.rejects(api('/config'), /starting or temporarily unavailable/);
+    }
     globalThis.fetch = async () => new Response('warming up');
     await assert.rejects(api('/config'), /unexpected response/);
     globalThis.fetch = async () => {throw new Error('private network detail');};
