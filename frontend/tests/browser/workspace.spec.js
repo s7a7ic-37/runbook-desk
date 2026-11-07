@@ -143,3 +143,61 @@ test("reviewed reply copying handles missing, denied and available clipboard acc
   }
   expect(errors).toEqual([]);
 });
+
+test("a stale review offers a guarded reload without repeating the decision", async ({ page }) => {
+  let record = { ...example, id: "synthetic-conflict", mode: "example", state: "draft", version: 1,
+    reply: example.draft.customer_reply, reviews: [], runs: [], created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" };
+  const edited = "This is a fictional local reply that has not been recorded.";
+  const recorded = "This is the reply recorded in another fictional browser tab.";
+  const note = "Local review not yet saved.";
+  let decisions = 0;
+  let reads = 0;
+  await page.route("**/api/cases**", route => {
+    const path = new URL(route.request().url()).pathname;
+    const method = route.request().method();
+    if (path === "/api/cases" && method === "GET") return route.fulfill({ json: [record] });
+    if (path === "/api/cases/" + record.id && method === "GET") {
+      reads += 1;
+      return route.fulfill({ json: record });
+    }
+    if (path === "/api/cases/" + record.id + "/review" && method === "POST") {
+      decisions += 1;
+      expect(route.request().postDataJSON()).toEqual({ version: 1, decision: "approved", reply: edited, note });
+      record = { ...record, state: "approved", version: 2, reply: recorded,
+        reviews: [{decision: "approved", original_reply: example.draft.customer_reply,
+          reviewed_reply: recorded, note: "Recorded in a second tab.", created_at: "2026-01-01T12:00:00Z"}] };
+      return route.fulfill({ status: 409, json: { error: { code: "review_conflict",
+        message: "This draft has changed or was already reviewed. Refresh before deciding." } } });
+    }
+    throw new Error("Unexpected synthetic conflict request: " + method + " " + path);
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.locator(".history-row").click();
+  const reply = page.getByRole("textbox", { name: "Review the customer reply", exact: true });
+  await reply.fill(edited);
+  await page.getByLabel("Your review note", { exact: true }).fill(note);
+  await page.getByRole("button", { name: "Approve reply", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Refresh before deciding.");
+  const reload = page.getByRole("button", { name: "Reload saved case", exact: true });
+  await expect(reload).toBeVisible();
+  await expect(reply).toHaveValue(edited);
+  let discard = false;
+  let prompts = 0;
+  page.on("dialog", async dialog => { prompts += 1; await (discard ? dialog.accept() : dialog.dismiss()); });
+  await reload.click();
+  await expect(reply).toHaveValue(edited);
+  await expect(page.getByLabel("Your review note", { exact: true })).toHaveValue(note);
+  expect(reads).toBe(1);
+  discard = true;
+  await reload.click();
+  await expect(reply).toHaveValue(recorded);
+  await expect(reply).toHaveJSProperty("readOnly", true);
+  await expect(page.getByRole("button", { name: "Copy reviewed reply", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(reads).toBe(2);
+  expect(decisions).toBe(1);
+  expect(prompts).toBe(2);
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await expect(page.locator(".history-row")).toContainText("Approved");
+});

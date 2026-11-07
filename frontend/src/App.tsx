@@ -18,7 +18,7 @@ export default function App() {
   const [reply, setReply] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("Starting your workspace");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | Error>("");
   const [notice, setNotice] = useState("");
   const [source, setSource] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -55,10 +55,12 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    setReply(active?.reply || "");
+  // Initialize together: a later effect can overwrite edits made after opening a case.
+  function showCase(record: Case | null) {
+    setActive(record);
+    setReply(record?.reply || "");
     setNote("");
-  }, [active]);
+  }
 
   useEffect(() => {
     if (!changedCase && !changedReview) return;
@@ -85,7 +87,7 @@ export default function App() {
     } catch (e) {
       setError(
         e instanceof Error
-          ? e.message
+          ? e
           : "Something went wrong. Please try again.",
       );
       if (e instanceof ApiError && e.status === 401)
@@ -107,7 +109,7 @@ export default function App() {
 
   function newCase() {
     if (busy || !canLeave()) return;
-    setActive(null);
+    showCase(null);
     setTitle("");
     setDescription("");
     setSelected(["rb-scope"]);
@@ -129,7 +131,11 @@ export default function App() {
   async function openCase(id: string) {
     if (!canLeave()) return;
     await perform("Opening saved case", async () => {
-      setActive(await api<Case>("/cases/" + id));
+      const saved = await api<Case>("/cases/" + id);
+      showCase(saved);
+      setHistory(items => items.map(item => item.id === saved.id
+        ? { ...item, state: saved.state, updated_at: saved.updated_at }
+        : item));
       setView("desk");
     });
   }
@@ -137,7 +143,7 @@ export default function App() {
   async function openExample(id: string) {
     if (!canLeave()) return;
     await perform("Opening worked example", async () => {
-      setActive(await api<Case>("/examples/" + id, "POST"));
+      showCase(await api<Case>("/examples/" + id, "POST"));
       setView("desk");
       await refreshWorkspace();
     });
@@ -157,14 +163,14 @@ export default function App() {
           description,
           runbook_ids: selected,
         });
-        setActive(created);
+        showCase(created);
         if (generate) {
           try {
-            setActive(
+            showCase(
               await api<Case>("/cases/" + created.id + "/generate", "POST"),
             );
           } catch (e) {
-            setActive(await api<Case>("/cases/" + created.id));
+            showCase(await api<Case>("/cases/" + created.id));
             await refreshWorkspace();
             throw e;
           }
@@ -179,9 +185,9 @@ export default function App() {
     const id = active.id;
     await perform("Preparing an investigation draft", async () => {
       try {
-        setActive(await api<Case>("/cases/" + id + "/generate", "POST"));
+        showCase(await api<Case>("/cases/" + id + "/generate", "POST"));
       } catch (e) {
-        setActive(await api<Case>("/cases/" + id));
+        showCase(await api<Case>("/cases/" + id));
         throw e;
       } finally {
         await refreshWorkspace();
@@ -192,7 +198,7 @@ export default function App() {
   async function review(decision: "approved" | "rejected") {
     if (!active || !reviewForm.current?.reportValidity()) return;
     await perform("Recording your review", async () => {
-      setActive(
+      showCase(
         await api<Case>("/cases/" + active.id + "/review", "POST", {
           version: active.version,
           decision,
@@ -386,7 +392,12 @@ export default function App() {
           </div>
           {error && (
             <div className="alert" role="alert">
-              <strong>That didn’t complete.</strong> {error}
+              <strong>That didn’t complete.</strong> {error instanceof Error ? error.message : error}
+              {error instanceof ApiError && error.status === 409 && active && (
+                <button className="button quiet" disabled={!!busy} onClick={() => openCase(active.id)}>
+                  Reload saved case
+                </button>
+              )}
               {!config && (
                 <button
                   className="button quiet"
