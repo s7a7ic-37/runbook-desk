@@ -370,6 +370,7 @@ h1 {
   margin: 0;
   letter-spacing: -0.2px;
 }
+.history-panel .panel-heading { flex-wrap: wrap; }
 .step {
   color: var(--accent);
   font:

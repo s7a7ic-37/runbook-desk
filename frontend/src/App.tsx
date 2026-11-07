@@ -409,6 +409,10 @@ export default function App() {
               <div className="panel-heading">
                 <h2>Saved in your workspace</h2>
                 <span className="muted">{history.length} / 20 cases</span>
+                <button className="button secondary" type="button" disabled={!!busy}
+                  onClick={() => perform("Refreshing history", refreshWorkspace)}>
+                  {busy === "Refreshing history" ? "Refreshing history…" : "Refresh history"}
+                </button>
               </div>
               {history.length ? (
                 <div className="history-list">

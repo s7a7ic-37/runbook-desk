@@ -5,6 +5,7 @@
 A support-case workspace for drafting an investigation from selected runbooks, checking its sources and reviewing a customer reply before approval.
 
 - Save cases and revisit their draft, model attempts and review history.
+- Refresh history after a connection interruption to check which cases reached the server without repeating the save.
 - Read the runbooks cited by each observation and proposed check.
 - Browse the public, fictional runbook library while the case server connects or is unavailable. Case history and review actions require a server connection.
 - Edit the reply, then approve it or mark it for further investigation. The original and reviewed replies are retained.
@@ -60,6 +61,8 @@ Run `node --test tests/worker.test.mjs` from the repository root to check the Cl
 Backend tests cover budget reservations, concurrent requests, workspace isolation, review conflicts, malformed provider output, citations and failure recovery. HTTP calls are intercepted by a mock transport, including tests configured with a nonzero call limit.
 
 ## Boundaries
+
+Browser requests time out after 90 seconds of active time without automatic retries. If a save or review is interrupted, check case history before repeating it: the server may still have completed the request.
 
 This is a portfolio demo, not a customer support system. Use fictional cases only. An anonymous HttpOnly cookie isolates each browser workspace for seven days; there is no user login, team access or account recovery. Expired workspaces, case text and reviews are removed when the next new workspace is created. Generation metadata is retained without case/workspace links so cleanup cannot reset the lifetime call allowance. Limits are 20 cases per workspace, 1,000 cases and 2,000 workspaces overall; a public deployment also needs ingress rate limiting and a retention policy.
 
