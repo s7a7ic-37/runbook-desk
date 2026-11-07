@@ -3,6 +3,7 @@ import { api, ApiError } from "./api";
 import { stateLabel, timeLabel } from "./format";
 import { caseReport } from "./report";
 import type { Case, CaseSummary, Config } from "./types";
+import publicRunbooks from "../../server/runbooks.json";
 
 type View = "desk" | "library" | "history";
 
@@ -238,7 +239,7 @@ export default function App() {
               key={item}
               aria-current={view === item ? "page" : undefined}
               onClick={() => setView(item)}
-              disabled={!!busy}
+              disabled={!!busy && !!config}
             >
               {item === "desk"
                 ? "Workspace"
@@ -250,7 +251,7 @@ export default function App() {
         </nav>
         <span className={"connection " + (config?.live_enabled ? "live" : "")}>
           <i />
-          {config?.live_enabled ? "Live drafts available" : "Example mode"}
+          {!config ? (busy ? "Connecting workspace" : "Workspace unavailable") : config.live_enabled ? "Live drafts available" : "Example mode"}
         </span>
       </header>
 
@@ -259,7 +260,7 @@ export default function App() {
           <button
             className="button primary new-case"
             onClick={newCase}
-            disabled={!!busy}
+            disabled={!!busy || !config}
           >
             ＋ New case
           </button>
@@ -281,11 +282,11 @@ export default function App() {
           </div>
           <div className="side-section">
             <p className="section-label">
-              Recent cases <span>{history.length}</span>
+              Recent cases <span>{config ? history.length : "—"}</span>
             </p>
             {!history.length && (
               <p className="side-note">
-                Saved cases appear here in this browser workspace.
+                {config ? "Saved cases appear here in this browser workspace." : "History will load when the case server connects."}
               </p>
             )}
             {history.slice(0, 5).map((item) => (
@@ -319,7 +320,7 @@ export default function App() {
             <button
               className="button primary"
               onClick={newCase}
-              disabled={!!busy}
+              disabled={!!busy || !config}
             >
               ＋ New case
             </button>
@@ -383,14 +384,11 @@ export default function App() {
               {notice}
             </p>
           )}
-          {!config ? (
-            <div className="loading-panel" role="status">
-              <span className="spinner" />
-              {busy || "Waiting to reconnect"}
-            </div>
-          ) : view === "library" ? (
+          {view === "library" ? (
+            <>
+            {!config && <p className="help">Read-only library. Saving and reviewing cases needs a connection to the case server.</p>}
             <div className="library-grid">
-              {config.runbooks.map((book) => (
+              {(config?.runbooks || publicRunbooks).map((book) => (
                 <article className="runbook-card" key={book.id}>
                   <span className="tag">{book.category}</span>
                   <h2>{book.title}</h2>
@@ -398,6 +396,13 @@ export default function App() {
                   <small>Demo procedure · reviewed {book.updated}</small>
                 </article>
               ))}
+            </div>
+            </>
+          ) : !config ? (
+            <div className="loading-panel" role="status">
+              {busy && <span className="spinner" />}
+              {busy || "Workspace unavailable. Retry the connection to use saved cases."}
+              <button className="button secondary" type="button" onClick={() => setView("library")}>Read runbooks</button>
             </div>
           ) : view === "history" ? (
             <section className="history-panel">
