@@ -84,6 +84,9 @@ export default function App() {
   }
 
   function canLeave() {
+    if (!active && (title.trim() || description.trim() || selected.length !== 1 || selected[0] !== "rb-scope")) {
+      return window.confirm("Discard your unsaved case details?");
+    }
     return (
       !(active?.state === "draft" && (reply !== active.reply || note.trim())) ||
       window.confirm("Discard your unsaved review edits?")
