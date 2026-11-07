@@ -764,16 +764,16 @@ export default function App() {
                           <button
                             className="button primary"
                             type="button"
-                            onClick={() =>
-                              navigator.clipboard
-                                .writeText(active.reply)
-                                .then(() => setNotice("Reviewed reply copied."))
-                                .catch(() =>
-                                  setError(
-                                    "Copy is unavailable here. Select the reply text to copy it manually.",
-                                  ),
-                                )
-                            }
+                            onClick={async () => {
+                              setError("");
+                              setNotice("");
+                              try {
+                                await navigator.clipboard.writeText(active.reply);
+                                setNotice("Reviewed reply copied.");
+                              } catch {
+                                setError("Copy is unavailable here. Select the reply text to copy it manually.");
+                              }
+                            }}
                           >
                             Copy reviewed reply
                           </button>

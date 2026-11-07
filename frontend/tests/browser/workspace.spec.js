@@ -102,3 +102,44 @@ test("runbooks stay readable when the case server is unavailable", async ({ page
   await expect(page.getByRole("button", { name: "＋ New case", exact: true })).toBeDisabled();
   await expect(page.getByText("Read-only library.", { exact: false })).toBeVisible();
 });
+
+test("reviewed reply copying handles missing, denied and available clipboard access", async ({ page }) => {
+  const reply = "A fictional recorded reply, ready for manual review and copying.";
+  const record = { ...example, id: "synthetic-approved", mode: "example", state: "approved", version: 2,
+    reply, reviews: [{ decision: "approved", original_reply: example.draft.customer_reply,
+      reviewed_reply: reply, note: "Fictional review completed.", created_at: "2026-01-01T12:00:00Z" }],
+    runs: [], created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" };
+  await page.route("**/api/cases**", route => {
+    expect(route.request().method()).toBe("GET");
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/cases") return route.fulfill({ json: [record] });
+    if (path === "/api/cases/" + record.id) return route.fulfill({ json: record });
+    throw new Error("Unexpected synthetic case request: " + path);
+  });
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.locator(".history-row").click();
+  const copy = page.getByRole("button", { name: "Copy reviewed reply", exact: true });
+  for (const mode of ["missing", "denied", "available", "denied"]) {
+    await page.evaluate(mode => {
+      Object.defineProperty(navigator, "clipboard", { configurable: true,
+        value: mode === "missing" ? undefined : { writeText: async text => {
+          if (mode === "denied") throw new DOMException("Synthetic denied access", "NotAllowedError");
+          window.__copiedReply = text;
+        } } });
+    }, mode);
+    await copy.click();
+    if (mode === "available") {
+      await expect(page.getByText("Reviewed reply copied.", { exact: true })).toBeVisible();
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      expect(await page.evaluate(() => window.__copiedReply)).toBe(reply);
+    } else {
+      await expect(page.getByRole("alert")).toContainText("Select the reply text to copy it manually.");
+      await expect(page.getByText("Reviewed reply copied.", { exact: true })).toHaveCount(0);
+    }
+    await expect(page.getByRole("textbox", { name: "Review the customer reply", exact: true })).toHaveValue(reply);
+  }
+  expect(errors).toEqual([]);
+});
