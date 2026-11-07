@@ -797,6 +797,9 @@ legend > span {
   font-size: 13px;
   margin: 0 0 16px;
 }
+.review-trail > .button {
+  margin-bottom: 16px;
+}
 .review-trail time {
   display: block;
   color: var(--muted);

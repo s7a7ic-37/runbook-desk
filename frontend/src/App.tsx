@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { stateLabel, timeLabel } from "./format";
+import { caseReport } from "./report";
 import type { Case, CaseSummary, Config } from "./types";
 
 type View = "desk" | "library" | "history";
@@ -198,6 +199,18 @@ export default function App() {
       : config?.runbooks.find((book) => book.id === id)?.title || id;
   const sourceBook = config?.runbooks.find((book) => book.id === source);
   const terminal = active?.state === "approved" || active?.state === "rejected";
+  function downloadHandoff() {
+    if (!active || !config) return;
+    const url = URL.createObjectURL(new Blob([caseReport(active, config.runbooks)], {
+      type: "text/plain;charset=utf-8",
+    }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `runbook-case-${active.id.slice(0, 8)}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice("Case handoff downloaded. It contains the recorded review and selected procedures.");
+  }
   const citation = (id: string) => (
     <button
       type="button"
@@ -742,6 +755,11 @@ export default function App() {
                     {!!active.reviews.length && (
                       <section className="review-trail">
                         <h3>Review trail</h3>
+                        {terminal && (
+                          <button className="button secondary" type="button" onClick={downloadHandoff}>
+                            Download case handoff
+                          </button>
+                        )}
                         {active.reviews.map((entry, index) => (
                           <div key={index}>
                             <span className={"status " + entry.decision}>
