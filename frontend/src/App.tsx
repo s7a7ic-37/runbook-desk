@@ -880,7 +880,6 @@ export default function App() {
         ref={dialog}
         className="source-dialog"
         aria-labelledby="source-title"
-        onClose={() => setSource(null)}
         onCancel={() => setSource(null)}
       >
         <div className="dialog-heading">

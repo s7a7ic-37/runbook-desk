@@ -103,6 +103,41 @@ test("runbooks stay readable when the case server is unavailable", async ({ page
   await expect(page.getByText("Read-only library.", { exact: false })).toBeVisible();
 });
 
+test("source dialogs expose their procedure and return keyboard focus without losing edits", async ({ page }) => {
+  await page.goto("/");
+  const picker = page.locator("#mobile-example");
+  await page.getByRole("button", { name: "Save case", exact: true }).waitFor();
+  if (await picker.isVisible()) await picker.selectOption(example.id);
+  else await page.locator(".example-link").filter({ hasText: example.title }).click();
+  const reply = page.getByRole("textbox", { name: "Review the customer reply", exact: true });
+  const edited = "Fictional review edits retained while checking a procedure.";
+  await reply.fill(edited);
+  const book = runbooks.find(item => item.id === example.runbook_ids[0]);
+  const source = page.locator(".source-stack .citation").filter({ hasText: book.title }).first();
+  const prompts = [];
+  page.on("dialog", async dialog => { prompts.push(dialog.type()); await dialog.dismiss(); });
+  for (const closeWith of ["escape", "button"]) {
+    await source.focus();
+    await expect(source).toBeFocused();
+    await page.keyboard.press("Enter");
+    const modal = page.getByRole("dialog", { name: book.title, exact: true });
+    await expect(modal).toBeVisible();
+    await expect(modal.getByText(book.body, { exact: true })).toBeVisible();
+    await expect(modal.getByRole("button", { name: "Close source", exact: true })).toBeFocused();
+    if (closeWith === "button") {
+      // A queued close event from the previous opening can arrive after showModal.
+      await modal.evaluate(node => node.dispatchEvent(new Event("close")));
+      await expect(modal).toBeVisible();
+    }
+    if (closeWith === "escape") await page.keyboard.press("Escape");
+    else await page.keyboard.press("Enter");
+    await expect(modal).not.toBeVisible();
+    await expect(source).toBeFocused();
+    await expect(reply).toHaveValue(edited);
+  }
+  expect(prompts).toEqual([]);
+});
+
 test("reviewed reply copying handles missing, denied and available clipboard access", async ({ page }) => {
   const reply = "A fictional recorded reply, ready for manual review and copying.";
   const record = { ...example, id: "synthetic-approved", mode: "example", state: "approved", version: 2,
