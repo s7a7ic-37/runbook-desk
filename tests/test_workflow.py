@@ -34,6 +34,7 @@ def test_zero_budget_never_reserves_or_calls_provider(clients):
     case = new_case(client)
     assert client.post(f"/api/cases/{case['id']}/generate").status_code == 503
     assert client.get('/api/config').json()['live_enabled'] is False
+    assert client.get('/api/config').json()['case_deletion_enabled'] is True
     with db.connection(URL) as conn:
         assert conn.execute('SELECT count(*) AS n FROM runbook_desk.runs').fetchone()['n'] == 0
 

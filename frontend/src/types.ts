@@ -47,6 +47,7 @@ export type Case = CaseSummary & {
   }[];
 };
 export type Config = {
+  case_deletion_enabled?: boolean;
   live_enabled: boolean;
   calls_remaining: number;
   runbooks: Runbook[];

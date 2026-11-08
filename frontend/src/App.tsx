@@ -567,14 +567,14 @@ export default function App() {
                         )}
                       </>
                     )}
-                    <button
+                    {config.case_deletion_enabled === true && <button
                       className="button quiet"
                       type="button"
                       disabled={!!busy}
                       onClick={deleteActiveCase}
                     >
                       Delete saved case
-                    </button>
+                    </button>}
                   </div>
                 ) : (
                   <form

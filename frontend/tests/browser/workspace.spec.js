@@ -10,7 +10,7 @@ test.beforeEach(async ({ context }) => {
   await context.route("**/api/**", route => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/workspace") return route.fulfill({ json: { ready: true } });
-    if (path === "/api/config") return route.fulfill({ json: { live_enabled: false, calls_remaining: 0, runbooks, examples } });
+    if (path === "/api/config") return route.fulfill({ json: { live_enabled: false, calls_remaining: 0, case_deletion_enabled: true, runbooks, examples } });
     if (path === "/api/cases") return route.fulfill({ json: cases });
     if (path === "/api/examples/" + example.id) {
       const record = { ...example, id: "synthetic-case", mode: "example", state: "draft", version: 1,
@@ -173,6 +173,20 @@ test("a worked-example retry reopens the saved example rather than creating anot
   await page.getByRole("button", { name: "History", exact: true }).click();
   await expect(page.locator(".history-row")).toHaveCount(1);
 });
+
+for (const capability of [undefined, false, "true"]) {
+  test(`deletion stays hidden without explicit API support: ${String(capability)}`, async ({ page }) => {
+    await page.route("**/api/config", route => route.fulfill({ json: {
+      live_enabled: false, calls_remaining: 0, runbooks, examples,
+      ...(capability === undefined ? {} : {case_deletion_enabled: capability}),
+    } }));
+    await page.goto("/");
+    await page.getByRole("button", { name: "Try a worked example", exact: true }).click();
+    await expect(page.getByRole("heading", { name: example.title, exact: true })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Review the customer reply", exact: true })).toHaveValue(example.draft.customer_reply);
+    await expect(page.getByRole("button", { name: "Delete saved case", exact: true })).toHaveCount(0);
+  });
+}
 
 test("deleting a saved case requires confirmation and removes it from history", async ({ page }) => {
   const deleted = [];

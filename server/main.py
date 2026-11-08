@@ -186,6 +186,7 @@ def create_app(settings=None):
         with db.connection(settings.database_url) as conn:
             calls = conn.execute('SELECT count(*) AS n FROM runbook_desk.runs').fetchone()['n']
         return {'live_enabled': settings.live_enabled and calls < settings.call_limit,
+                'case_deletion_enabled': True,
                 'calls_remaining': max(0, settings.call_limit - calls),
                 'runbooks': RUNBOOKS,
                 'examples': [{k: e[k] for k in ('id', 'title', 'description', 'runbook_ids')} for e in EXAMPLES]}
