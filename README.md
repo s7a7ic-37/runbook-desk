@@ -5,6 +5,7 @@
 A support-case workspace for drafting an investigation from selected runbooks, checking its sources and reviewing a customer reply before approval.
 
 - Save cases and revisit their draft, model attempts and review history.
+- Retry an interrupted save with unchanged details to recover the same case, without creating a duplicate.
 - Refresh history after a connection interruption to check which cases reached the server without repeating the save.
 - Confirm before replacing unsaved case details, runbook choices or review edits.
 - Read the runbooks cited by each observation and proposed check.
@@ -66,7 +67,11 @@ Backend tests cover budget reservations, concurrent requests, workspace isolatio
 
 ## Boundaries
 
-Browser requests time out after 90 seconds of active time without automatic retries. If a save or review is interrupted, check case history before repeating it: the server may still have completed the request.
+Browser requests time out after 90 seconds of active time without automatic retries. A case save can reach the database even when its response is lost. While the page remains open, an unchanged failed case or example creation reuses its save key; repeating it returns the existing case's current state, including any later review. Editing the details, choosing another example or explicitly starting a new case starts a separate save. Check history if you changed an interrupted case: the earlier one may already exist. Reloading the page does not retain the pending key or unsaved form.
+
+API clients can provide a UUID `Idempotency-Key` on `POST /api/cases` and `POST /api/examples/{example_id}`. Keys are scoped to the browser workspace and retained with the case. Reusing a key for different validated details or a different creation route returns 409. Requests without a key create a new case as before. Existing databases gain two nullable columns and a unique index during normal schema initialization; existing cases and reviews remain intact.
+
+Reviews are not automatically retried. If a review is interrupted, check case history before repeating it: the server may still have completed the request.
 
 The brand link and in-app case changes use an explicit discard guard. Browser-level exit warnings are best-effort and are unreliable on some mobile browsers or if the browser process is killed; save a case before leaving. Unsaved text is not automatically persisted.
 

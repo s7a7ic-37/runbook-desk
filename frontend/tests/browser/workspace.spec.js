@@ -66,6 +66,114 @@ test("brand navigation cannot reset a case while its save is in flight", async (
   await expect(page.getByRole("heading", { name: "Fictional pending save", exact: true })).toBeVisible();
 });
 
+test("an interrupted save reuses its creation key while an explicit new case gets another", async ({ page }) => {
+  const saved = new Map();
+  const keys = [];
+  await page.route("**/api/cases", route => {
+    const request = route.request();
+    if (request.method() === "GET") return route.fulfill({ json: [...saved.values()] });
+    const key = request.headers()["idempotency-key"];
+    keys.push(key);
+    const storageKey = key || "unkeyed-" + keys.length;
+    if (!saved.has(storageKey)) saved.set(storageKey, { ...request.postDataJSON(),
+      id: "synthetic-save-" + saved.size, state: "new", mode: "live", version: 0,
+      reply: "", draft: null, reviews: [], runs: [],
+      created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" });
+    // The fictional server saved the case before its response was lost.
+    if (keys.length === 1) return route.abort("failed");
+    return route.fulfill({ status: 201, json: saved.get(storageKey) });
+  });
+  await page.goto("/");
+  const title = "Fictional interrupted save";
+  const description = "Fictional incident details for a save whose acknowledgement is deliberately lost.";
+  async function fillCase() {
+    await page.getByLabel("Case title", { exact: true }).fill(title);
+    await page.locator("#case-description").fill(description);
+  }
+  await fillCase();
+  await page.getByRole("button", { name: "Save case", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Retry with unchanged details to recover the same case");
+  await expect(page.getByLabel("Case title", { exact: true })).toHaveValue(title);
+  expect(keys).toHaveLength(1);
+  expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Save case", exact: true }).click();
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  expect(keys).toEqual([keys[0], keys[0]]);
+  expect(saved.size).toBe(1);
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await expect(page.locator(".history-row")).toHaveCount(1);
+  await page.getByRole("button", { name: "＋ New case", exact: true }).click();
+  await fillCase();
+  await page.getByRole("button", { name: "Save case", exact: true }).click();
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  expect(keys).toHaveLength(3);
+  expect(keys[2]).not.toBe(keys[0]);
+  expect(saved.size).toBe(2);
+});
+
+test("editing an interrupted case starts a different save without replacing the first one", async ({ page }) => {
+  const keys = [];
+  const records = [];
+  await page.route("**/api/cases", route => {
+    const request = route.request();
+    if (request.method() === "GET") return route.fulfill({ json: records });
+    keys.push(request.headers()["idempotency-key"]);
+    const record = { ...request.postDataJSON(), id: "synthetic-edit-" + keys.length,
+      state: "new", mode: "live", version: 0, reply: "", draft: null, reviews: [], runs: [],
+      created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" };
+    records.push(record);
+    if (keys.length === 1) return route.abort("failed");
+    return route.fulfill({ status: 201, json: record });
+  });
+  await page.goto("/");
+  await page.getByLabel("Case title", { exact: true }).fill("First fictional details");
+  await page.locator("#case-description").fill("A fictional incident with sufficient detail for a deliberately interrupted save.");
+  await page.getByRole("button", { name: "Save case", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByLabel("Case title", { exact: true }).fill("Changed fictional details");
+  await page.getByRole("button", { name: "Save case", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Changed fictional details", exact: true })).toBeVisible();
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).not.toBe(keys[0]);
+  expect(records.map(item => item.title)).toEqual(["First fictional details", "Changed fictional details"]);
+});
+
+test("a worked-example retry reopens the saved example rather than creating another", async ({ page }) => {
+  const keys = [];
+  const saved = new Map();
+  await page.route("**/api/cases", route => {
+    expect(route.request().method()).toBe("GET");
+    return route.fulfill({ json: [...saved.values()] });
+  });
+  await page.route("**/api/examples/" + example.id, route => {
+    const key = route.request().headers()["idempotency-key"];
+    keys.push(key);
+    const storageKey = key || "unkeyed-" + keys.length;
+    if (!saved.has(storageKey)) saved.set(storageKey, { ...example, id: "synthetic-example-" + saved.size,
+      mode: "example", state: "draft", version: 0, reply: example.draft.customer_reply,
+      reviews: [], runs: [], created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" });
+    if (keys.length === 1) return route.abort("failed");
+    return route.fulfill({ status: 201, json: saved.get(storageKey) });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save case", exact: true }).waitFor();
+  async function openExample() {
+    const picker = page.locator("#mobile-example");
+    if (await picker.isVisible()) await picker.selectOption(example.id);
+    else await page.locator(".example-link").filter({ hasText: example.title }).click();
+  }
+  await openExample();
+  await expect(page.getByRole("alert")).toBeVisible();
+  expect(keys).toHaveLength(1);
+  expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/);
+  await openExample();
+  await expect(page.getByRole("textbox", { name: "Review the customer reply", exact: true })).toHaveValue(example.draft.customer_reply);
+  expect(keys).toEqual([keys[0], keys[0]]);
+  expect(saved.size).toBe(1);
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await expect(page.locator(".history-row")).toHaveCount(1);
+});
+
 test("supported browser navigation warns only while case edits are unsaved", async ({ page, browserName }) => {
   test.skip(browserName === "webkit", "Mobile WebKit did not emit beforeunload in verified emulation; native exit warnings are best-effort.");
   await page.goto("/");

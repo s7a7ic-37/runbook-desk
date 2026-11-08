@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -143,25 +143,36 @@ def create_app(settings=None):
 
     def full_case(conn, case_id, workspace_id):
         row = case_row(conn, case_id, workspace_id)
-        row.pop('workspace_id')
-        row.pop('active_run_id')
+        for field in ('workspace_id', 'active_run_id', 'creation_key', 'creation_hash'):
+            row.pop(field)
         row['reviews'] = conn.execute('SELECT decision, original_reply, reviewed_reply, note, created_at FROM runbook_desk.reviews WHERE case_id = %s ORDER BY id', (case_id,)).fetchall()
         row['runs'] = conn.execute('SELECT state, model, input_tokens, output_tokens, latency_ms, error_code, created_at FROM runbook_desk.runs WHERE case_id = %s ORDER BY created_at DESC LIMIT 5', (case_id,)).fetchall()
         return row
 
-    def insert_case(conn, workspace_id, data, mode='live', draft=None):
+    def insert_case(conn, workspace_id, data, mode='live', draft=None, creation_key=None, example_id=None):
         conn.execute('SELECT pg_advisory_xact_lock(720051)')
+        creation_hash = None
+        if creation_key is not None:
+            request_input = example_id if mode == 'example' else data.model_dump()
+            creation_hash = hashlib.sha256(json.dumps(
+                [mode, request_input], sort_keys=True).encode()).hexdigest()
+            existing = conn.execute('''SELECT id, creation_hash FROM runbook_desk.cases
+                WHERE workspace_id=%s AND creation_key=%s''', (workspace_id, creation_key)).fetchone()
+            if existing:
+                if existing['creation_hash'] != creation_hash:
+                    problem(409, 'creation_conflict', 'This save key was already used for different case details. Start a new case.')
+                return full_case(conn, existing['id'], workspace_id)
         count = conn.execute('SELECT count(*) AS n FROM runbook_desk.cases WHERE workspace_id = %s', (workspace_id,)).fetchone()['n']
         total = conn.execute('SELECT count(*) AS n FROM runbook_desk.cases').fetchone()['n']
         if count >= 20 or total >= 1000:
             problem(429, 'case_limit', 'This demo workspace has reached its case limit.')
         case_id = uuid4()
         conn.execute('''INSERT INTO runbook_desk.cases
-            (id, workspace_id, title, description, runbook_ids, mode, state, draft, reply)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+            (id, workspace_id, title, description, runbook_ids, mode, state, draft, reply, creation_key, creation_hash)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
             (case_id, workspace_id, data.title, data.description, Jsonb(data.runbook_ids), mode,
              'draft' if draft else 'new', Jsonb(draft) if draft else None,
-             draft['customer_reply'] if draft else ''))
+             draft['customer_reply'] if draft else '', creation_key, creation_hash))
         return full_case(conn, case_id, workspace_id)
 
     @app.get('/api/health')
@@ -212,21 +223,23 @@ def create_app(settings=None):
             return conn.execute('SELECT id, title, state, mode, updated_at FROM runbook_desk.cases WHERE workspace_id = %s ORDER BY created_at DESC LIMIT 20', (workspace_id,)).fetchall()
 
     @app.post('/api/cases', status_code=201)
-    def new_case(data: CaseInput, workspace_id=Depends(workspace)):
+    def new_case(data: CaseInput, workspace_id=Depends(workspace),
+                 creation_key: UUID | None = Header(default=None, alias='Idempotency-Key')):
         if len(set(data.runbook_ids)) != len(data.runbook_ids) or not set(data.runbook_ids) <= BOOK_IDS:
             problem(422, 'invalid_runbooks', 'Choose one to three different runbooks from the library.')
         with db.connection(settings.database_url) as conn:
-            return insert_case(conn, workspace_id, data)
+            return insert_case(conn, workspace_id, data, creation_key=creation_key)
 
     @app.post('/api/examples/{example_id}', status_code=201)
-    def load_example(example_id: str, workspace_id=Depends(workspace)):
+    def load_example(example_id: str, workspace_id=Depends(workspace),
+                     creation_key: UUID | None = Header(default=None, alias='Idempotency-Key')):
         example = next((e for e in EXAMPLES if e['id'] == example_id), None)
         if not example:
             problem(404, 'example_not_found', 'Choose one of the worked examples.')
         data = CaseInput.model_validate({key: example[key] for key in ('title', 'description', 'runbook_ids')})
         draft = Draft.model_validate(example['draft'], context={'source_ids': data.runbook_ids}).model_dump()
         with db.connection(settings.database_url) as conn:
-            return insert_case(conn, workspace_id, data, 'example', draft)
+            return insert_case(conn, workspace_id, data, 'example', draft, creation_key, example_id)
 
     @app.get('/api/cases/{case_id}')
     def read_case(case_id: UUID, workspace_id=Depends(workspace)):

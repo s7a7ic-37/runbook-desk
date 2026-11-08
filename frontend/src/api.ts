@@ -10,11 +10,14 @@ export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  creationKey?: string,
 ): Promise<T> {
   const signal = AbortSignal.timeout(90_000);
   const recovery = method === "GET"
     ? "Please try again in a minute."
-    : "The request may still have completed. Check case history before retrying.";
+    : creationKey
+      ? "The save may still have completed. Retry with unchanged details to recover the same case, or check case history."
+      : "The request may still have completed. Check case history before retrying.";
   const timeoutMessage = "The server took too long to respond. " + recovery;
   let response: Response;
   try {
@@ -22,8 +25,10 @@ export async function api<T>(
       method,
       credentials: "same-origin",
       signal,
-      headers:
-        body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers: {
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(creationKey ? { "Idempotency-Key": creationKey } : {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {

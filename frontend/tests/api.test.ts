@@ -77,3 +77,27 @@ test('API timeouts bound response and body reads without automatically repeating
     AbortSignal.timeout = originalTimeout;
   }
 });
+
+test('case creation sends the supplied retry key with and without a JSON body', async () => {
+  const originalFetch = globalThis.fetch;
+  const key = '49802d63-ea51-4165-898a-8a7f387d0248';
+  const requests: Request[] = [];
+  try {
+    globalThis.fetch = async (url, options) => {
+      requests.push(new Request('https://synthetic.example' + url, options));
+      return Response.json({id: 'synthetic-case'});
+    };
+    await api('/cases', 'POST', {title: 'Fictional case'}, key);
+    await api('/examples/webhook-retries', 'POST', undefined, key);
+    assert.equal(requests.length, 2);
+    for (const request of requests) assert.equal(request.headers.get('Idempotency-Key'), key);
+    assert.equal(requests[0].headers.get('Content-Type'), 'application/json');
+    assert.deepEqual(await requests[0].json(), {title: 'Fictional case'});
+    assert.equal(requests[1].headers.get('Content-Type'), null);
+    assert.equal(await requests[1].text(), '');
+    globalThis.fetch = async () => { throw new Error('Synthetic connection interruption'); };
+    await assert.rejects(api('/cases', 'POST', {title: 'Fictional case'}, key), /Retry with unchanged details to recover the same case/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -24,6 +24,7 @@ export default function App() {
   const dialog = useRef<HTMLDialogElement>(null);
   const caseForm = useRef<HTMLFormElement>(null);
   const reviewForm = useRef<HTMLFormElement>(null);
+  const pendingCreation = useRef<{ input: string; key: string } | null>(null);
   const changedCase = !active && (title.trim() !== "" || description.trim() !== "" || selected.length !== 1 || selected[0] !== "rb-scope");
   const changedReview = active?.state === "draft" && (reply !== active.reply || note.trim() !== "");
 
@@ -39,6 +40,16 @@ export default function App() {
   async function initialize() {
     await api("/workspace", "POST");
     await refreshWorkspace();
+  }
+
+  async function createCase(path: string, body?: unknown) {
+    const input = JSON.stringify([path, body ?? null]);
+    if (pendingCreation.current?.input !== input)
+      pendingCreation.current = { input, key: crypto.randomUUID() };
+    const attempt = pendingCreation.current;
+    const record = await api<Case>(path, "POST", body, attempt.key);
+    if (pendingCreation.current === attempt) pendingCreation.current = null;
+    return record;
   }
 
   useEffect(() => {
@@ -109,6 +120,7 @@ export default function App() {
 
   function newCase() {
     if (busy || !canLeave()) return;
+    pendingCreation.current = null;
     showCase(null);
     setTitle("");
     setDescription("");
@@ -143,7 +155,7 @@ export default function App() {
   async function openExample(id: string) {
     if (!canLeave()) return;
     await perform("Opening worked example", async () => {
-      showCase(await api<Case>("/examples/" + id, "POST"));
+      showCase(await createCase("/examples/" + id));
       setView("desk");
       await refreshWorkspace();
     });
@@ -158,7 +170,7 @@ export default function App() {
     await perform(
       generate ? "Preparing an investigation draft" : "Saving your case",
       async () => {
-        const created = await api<Case>("/cases", "POST", {
+        const created = await createCase("/cases", {
           title,
           description,
           runbook_ids: selected,

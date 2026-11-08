@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS runbook_desk.cases (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS cases_workspace_created ON runbook_desk.cases(workspace_id, created_at DESC);
+ALTER TABLE runbook_desk.cases
+    ADD COLUMN IF NOT EXISTS creation_key uuid,
+    ADD COLUMN IF NOT EXISTS creation_hash text;
+CREATE UNIQUE INDEX IF NOT EXISTS cases_workspace_creation_key
+    ON runbook_desk.cases(workspace_id, creation_key);
 
 CREATE TABLE IF NOT EXISTS runbook_desk.runs (
     id uuid PRIMARY KEY,
