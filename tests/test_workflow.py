@@ -182,12 +182,17 @@ def test_real_request_shape_and_idempotency(clients):
     ('busy', 'provider_busy'), ('error', 'provider_error'), ('timeout', 'provider_timeout'),
     ('refusal', 'provider_refusal'), ('incomplete', 'incomplete_response'),
     ('invalid', 'invalid_draft'), ('citations', 'invalid_draft'), ('usage', 'invalid_draft'),
-    ('null_text', 'invalid_draft')])
+    ('null_text', 'invalid_draft'), ('connection', 'provider_unreachable'), ('json', 'invalid_draft')])
 def test_provider_failures_are_saved_and_sanitized(clients, kind, code):
+    calls = []
+
     def handler(request):
+        calls.append(request)
         if kind == 'busy': return httpx.Response(429, text='private-provider-detail')
         if kind == 'error': return httpx.Response(503, text='private-provider-detail')
         if kind == 'timeout': raise httpx.ReadTimeout('private-provider-detail')
+        if kind == 'connection': raise httpx.ConnectError('private-provider-detail')
+        if kind == 'json': return httpx.Response(200, text='private-provider-detail')
         if kind == 'refusal': return httpx.Response(200, json={'status': 'completed', 'output': [
             {'type': 'message', 'content': [{'type': 'refusal'}]}]})
         if kind == 'incomplete': return httpx.Response(200, json={'status': 'incomplete'})
@@ -212,7 +217,9 @@ def test_provider_failures_are_saved_and_sanitized(clients, kind, code):
     assert 'private-provider-detail' not in result.text
     stored = client.get(f"/api/cases/{case['id']}").json()
     assert stored['state'] == stored['runs'][0]['state'] == 'failed'
+    assert len(stored['runs']) == 1 and stored['draft'] is None
     assert client.post(f"/api/cases/{case['id']}/generate").status_code == 429
+    assert len(calls) == 1
 
 
 def test_citations_must_include_selected_runbook():
