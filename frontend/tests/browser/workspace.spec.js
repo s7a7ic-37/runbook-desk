@@ -112,7 +112,8 @@ test("brand navigation cannot reset a case while its save is in flight", async (
   await expect(page.getByRole("heading", { name: "Fictional pending save", exact: true })).toBeVisible();
 });
 
-test("an interrupted save reuses its creation key while an explicit new case gets another", async ({ page }) => {
+for (const failure of ["connection", "proxy", "unreadable success"]) {
+test(`a save with ${failure} failure reuses its creation key while an explicit new case gets another`, async ({ page }) => {
   const saved = new Map();
   const keys = [];
   await page.route("**/api/cases", route => {
@@ -126,7 +127,10 @@ test("an interrupted save reuses its creation key while an explicit new case get
       reply: "", draft: null, reviews: [], runs: [],
       created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z" });
     // The fictional server saved the case before its response was lost.
-    if (keys.length === 1) return route.abort("failed");
+    if (keys.length === 1) {
+      if (failure === "connection") return route.abort("failed");
+      return route.fulfill({status: failure === "proxy" ? 502 : 200, body: "Synthetic unreadable response"});
+    }
     return route.fulfill({ status: 201, json: saved.get(storageKey) });
   });
   await page.goto("/");
@@ -156,6 +160,7 @@ test("an interrupted save reuses its creation key while an explicit new case get
   expect(keys[2]).not.toBe(keys[0]);
   expect(saved.size).toBe(2);
 });
+}
 
 test("editing an interrupted case starts a different save without replacing the first one", async ({ page }) => {
   const keys = [];

@@ -101,3 +101,26 @@ test('case creation sends the supplied retry key with and without a JSON body', 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('unreadable write responses explain uncertain completion without repeating requests', async () => {
+  const originalFetch = globalThis.fetch;
+  let requests = 0;
+  try {
+    for (const status of [200, 429, 502, 503, 504]) {
+      globalThis.fetch = async () => {
+        requests++;
+        return new Response('private upstream text', {status});
+      };
+      await assert.rejects(api('/cases', 'POST', {}, 'synthetic-key'), (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /may still have completed.*Retry with unchanged details/);
+        assert.doesNotMatch(error.message, /private upstream/);
+        return true;
+      });
+      await assert.rejects(api('/cases/synthetic/review', 'POST', {}), /may still have completed.*Check case history/);
+    }
+    assert.equal(requests, 10);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

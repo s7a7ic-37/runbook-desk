@@ -47,13 +47,13 @@ export async function api<T>(
         ? "The case server is starting or temporarily unavailable. Please wait a minute, then retry."
         : "The request could not be completed. Please try again.";
     throw new ApiError(
-      data?.error?.message || fallback,
+      data?.error?.message || fallback + (method === "GET" ? "" : " " + recovery),
       response.status,
     );
   }
   if (data === null)
     throw new Error(
-      "The server returned an unexpected response. Please try again.",
+      "The server returned an unexpected response. " + recovery,
     );
   return data as T;
 }
