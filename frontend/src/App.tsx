@@ -16,6 +16,9 @@ export default function App() {
   const matchingHistory = history.filter(item => item.title.toLowerCase().includes(historyTerm));
   const [active, setActive] = useState<Case | null>(null);
   const [view, setView] = useState<View>("desk");
+  const pageHeading = useRef<HTMLHeadingElement>(null);
+  const caseHeading = useRef<HTMLHeadingElement>(null);
+  const focusLocation = useRef({view, id: active?.id});
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selected, setSelected] = useState<string[]>(["rb-scope"]);
@@ -76,6 +79,13 @@ export default function App() {
     setReply(record?.reply || "");
     setNote("");
   }
+
+  useEffect(() => {
+    const id = active?.id;
+    if (focusLocation.current.view === view && focusLocation.current.id === id) return;
+    focusLocation.current = {view, id};
+    (view === "desk" && id ? caseHeading.current : pageHeading.current)?.focus();
+  }, [view, active?.id]);
 
   useEffect(() => {
     if (!changedCase && !changedReview) return;
@@ -408,7 +418,7 @@ export default function App() {
           <div className="page-heading">
             <div>
               <p className="eyebrow">A support engineer’s workspace</p>
-              <h1>
+              <h1 ref={pageHeading} tabIndex={-1}>
                 {view === "library"
                   ? "The runbook library."
                   : view === "history"
@@ -559,7 +569,7 @@ export default function App() {
                         <span className="tag">Illustrative example</span>
                       )}
                     </div>
-                    <h3>{active.title}</h3>
+                    <h3 ref={caseHeading} tabIndex={-1}>{active.title}</h3>
                     <p className="case-description">{active.description}</p>
                     <p className="section-label">Selected sources</p>
                     <div className="source-stack">

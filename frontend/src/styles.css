@@ -73,7 +73,9 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
-select:focus-visible {
+select:focus-visible,
+h1:focus-visible,
+h3:focus-visible {
   outline: 3px solid #c87445;
   outline-offset: 3px;
 }
