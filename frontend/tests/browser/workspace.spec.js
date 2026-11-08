@@ -49,6 +49,7 @@ test("saved-case search stays local and survives refresh and case navigation", a
   expect(reads).toBe(initialReads);
   await page.getByRole("button", {name: "Clear search", exact: true}).click();
   await expect(page.locator(".history-row")).toHaveCount(3);
+  await expect(search).toBeFocused();
   await search.fill("webhook");
   records.push({...records[0], id: "synthetic-search-3", title: "Webhook delivery checks"});
   await page.getByRole("button", {name: "Refresh history", exact: true}).click();

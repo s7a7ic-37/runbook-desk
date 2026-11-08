@@ -11,6 +11,7 @@ export default function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [history, setHistory] = useState<CaseSummary[]>([]);
   const [historySearch, setHistorySearch] = useState("");
+  const historySearchInput = useRef<HTMLInputElement>(null);
   const historyTerm = historySearch.trim().toLowerCase();
   const matchingHistory = history.filter(item => item.title.toLowerCase().includes(historyTerm));
   const [active, setActive] = useState<Case | null>(null);
@@ -484,7 +485,7 @@ export default function App() {
                 <>
                 <div className="history-search">
                   <label className="field-label" htmlFor="history-search">Find a saved case</label>
-                  <input id="history-search" type="search" value={historySearch}
+                  <input ref={historySearchInput} id="history-search" type="search" value={historySearch}
                     onChange={(event) => setHistorySearch(event.target.value)} />
                   <p className="help" role="status">{matchingHistory.length} of {history.length} saved cases</p>
                 </div>
@@ -520,7 +521,10 @@ export default function App() {
                   {!matchingHistory.length && (
                     <div className="empty">
                       <p>No saved cases match this title.</p>
-                      <button className="button secondary" type="button" onClick={() => setHistorySearch("")}>Clear search</button>
+                      <button className="button secondary" type="button" onClick={() => {
+                        setHistorySearch("");
+                        historySearchInput.current?.focus();
+                      }}>Clear search</button>
                     </div>
                   )}
                 </div>
