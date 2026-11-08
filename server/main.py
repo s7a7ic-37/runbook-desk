@@ -246,6 +246,20 @@ def create_app(settings=None):
         with db.connection(settings.database_url) as conn:
             return full_case(conn, case_id, workspace_id)
 
+    @app.delete('/api/cases/{case_id}')
+    def delete_case(case_id: UUID, workspace_id=Depends(workspace)):
+        with db.connection(settings.database_url) as conn:
+            case = conn.execute('SELECT state FROM runbook_desk.cases WHERE id=%s AND workspace_id=%s FOR UPDATE',
+                                (case_id, workspace_id)).fetchone()
+            if not case:
+                problem(404, 'case_not_found', 'That saved case was not found.')
+            if case['state'] == 'generating':
+                problem(409, 'case_in_progress', 'Wait until draft generation finishes, then delete this case.')
+            conn.execute('DELETE FROM runbook_desk.reviews WHERE case_id=%s', (case_id,))
+            conn.execute('DELETE FROM runbook_desk.cases WHERE id=%s AND workspace_id=%s',
+                         (case_id, workspace_id))
+        return {'deleted': True}
+
     @app.post('/api/cases/{case_id}/generate')
     def generate_case(case_id: UUID, workspace_id=Depends(workspace)):
         # Check the zero-budget switch before reserving a run or contacting the provider.

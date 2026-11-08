@@ -5,6 +5,7 @@
 A support-case workspace for drafting an investigation from selected runbooks, checking its sources and reviewing a customer reply before approval.
 
 - Save cases and revisit their draft, model attempts and review history.
+- Delete a saved case and its review history from the current workspace.
 - Retry an interrupted save with unchanged details to recover the same case, without creating a duplicate.
 - Refresh history after a connection interruption to check which cases reached the server without repeating the save.
 - Confirm before replacing unsaved case details, runbook choices or review edits.
@@ -75,7 +76,7 @@ Reviews are not automatically retried. If a review is interrupted, check case hi
 
 The brand link and in-app case changes use an explicit discard guard. Browser-level exit warnings are best-effort and are unreliable on some mobile browsers or if the browser process is killed; save a case before leaving. Unsaved text is not automatically persisted.
 
-This is a portfolio demo, not a customer support system. Use fictional cases only. An anonymous HttpOnly cookie isolates each browser workspace for seven days; there is no user login, team access or account recovery. Expired workspaces, case text and reviews are removed when the next new workspace is created. Generation metadata is retained without case/workspace links so cleanup cannot reset the lifetime call allowance. Limits are 20 cases per workspace, 1,000 cases and 2,000 workspaces overall; a public deployment also needs ingress rate limiting and a retention policy.
+This is a portfolio demo, not a customer support system. Use fictional cases only. An anonymous HttpOnly cookie isolates each browser workspace for seven days; there is no user login, team access or account recovery. Expired workspaces, case text and reviews are removed when the next new workspace is created. Deleting a case removes its case and review text immediately; model-attempt records remain to enforce the call limit. Expiry detaches those records from case and workspace so cleanup cannot reset the lifetime allowance. Limits are 20 cases per workspace, 1,000 cases and 2,000 workspaces overall; a public deployment also needs ingress rate limiting and a retention policy.
 
 Structured output and valid citations do not establish factual correctness or prevent prompt injection. A person must inspect the full draft and sources. Approval only records a decision; it does not send the reply. `store:false` requests no Responses API application-state storage; provider retention policies still apply.
 

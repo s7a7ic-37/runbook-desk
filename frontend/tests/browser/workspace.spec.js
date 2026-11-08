@@ -174,6 +174,41 @@ test("a worked-example retry reopens the saved example rather than creating anot
   await expect(page.locator(".history-row")).toHaveCount(1);
 });
 
+test("deleting a saved case requires confirmation and removes it from history", async ({ page }) => {
+  const deleted = [];
+  await page.goto("/");
+  await page.getByRole("button", { name: "Try a worked example", exact: true }).click();
+  await expect(page.getByRole("heading", { name: example.title, exact: true })).toBeVisible();
+  await page.route("**/api/cases/synthetic-case", route => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    deleted.push(route.request().url());
+    return route.fulfill({ json: { deleted: true } });
+  });
+  const reply = page.getByRole("textbox", { name: "Review the customer reply", exact: true });
+  await reply.fill("Fictional unsaved review edit for deletion confirmation.");
+
+  const decisions = [false, true];
+  const prompts = [];
+  page.on("dialog", async dialog => {
+    prompts.push(dialog.message());
+    if (decisions.shift()) await dialog.accept();
+    else await dialog.dismiss();
+  });
+  const remove = page.getByRole("button", { name: "Delete saved case", exact: true });
+  await remove.click();
+  await expect(page.getByRole("heading", { name: example.title, exact: true })).toBeVisible();
+  await expect(reply).toHaveValue("Fictional unsaved review edit for deletion confirmation.");
+  expect(deleted).toHaveLength(0);
+  await remove.click();
+
+  await expect(page.getByRole("heading", { name: "Saved in your workspace", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nothing saved yet.", exact: true })).toBeVisible();
+  await expect(page.getByText("Saved case and review history deleted.", { exact: true })).toBeVisible();
+  expect(prompts).toHaveLength(2);
+  expect(prompts[0]).toContain("unsaved edits will be lost");
+  expect(deleted).toHaveLength(1);
+});
+
 test("supported browser navigation warns only while case edits are unsaved", async ({ page, browserName }) => {
   test.skip(browserName === "webkit", "Mobile WebKit did not emit beforeunload in verified emulation; native exit warnings are best-effort.");
   await page.goto("/");

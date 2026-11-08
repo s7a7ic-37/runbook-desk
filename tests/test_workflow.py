@@ -54,6 +54,46 @@ def test_example_edits_review_history_and_conflict(clients):
     assert len(client.get('/api/cases').json()) == 1
 
 
+def test_delete_case_removes_review_text_but_keeps_usage_limit(clients):
+    client = clients(limit=1, handler=lambda request: completed())
+    case = new_case(client)
+    generated = client.post(f"/api/cases/{case['id']}/generate")
+    assert generated.status_code == 200
+    reviewed = client.post(f"/api/cases/{case['id']}/review", json={
+        'version': generated.json()['version'], 'decision': 'approved',
+        'reply': generated.json()['reply'], 'note': 'Reviewed synthetic example.'})
+    assert reviewed.status_code == 200
+
+    deleted = client.delete(f"/api/cases/{case['id']}")
+
+    assert deleted.status_code == 200 and deleted.json() == {'deleted': True}
+    assert client.get('/api/cases').json() == []
+    assert client.get(f"/api/cases/{case['id']}").status_code == 404
+    assert client.get('/api/config').json()['calls_remaining'] == 0
+    with db.connection(URL) as conn:
+        assert conn.execute('SELECT count(*) AS n FROM runbook_desk.cases').fetchone()['n'] == 0
+        assert conn.execute('SELECT count(*) AS n FROM runbook_desk.reviews').fetchone()['n'] == 0
+        run = conn.execute('SELECT case_id, workspace_id, state FROM runbook_desk.runs').fetchone()
+        assert run['case_id'] is None and run['workspace_id'] is not None
+        assert run['state'] == 'succeeded'
+
+
+def test_delete_is_workspace_scoped_and_rejects_active_generation(clients):
+    owner, stranger = clients(), clients()
+    case = new_case(owner)
+    route = f"/api/cases/{case['id']}"
+    assert stranger.delete(route).status_code == 404
+    assert owner.get(route).status_code == 200
+    with db.connection(URL) as conn:
+        conn.execute("UPDATE runbook_desk.cases SET state='generating' WHERE id=%s", (case['id'],))
+
+    result = owner.delete(route)
+
+    assert result.status_code == 409
+    assert result.json()['error']['code'] == 'case_in_progress'
+    assert owner.get(route).json()['state'] == 'generating'
+
+
 def test_workspace_isolation_and_expiry(clients):
     owner, stranger = clients(1), clients(1)
     case = new_case(owner)

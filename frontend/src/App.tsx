@@ -227,6 +227,27 @@ export default function App() {
     });
   }
 
+  async function deleteActiveCase() {
+    if (
+      !active ||
+      !window.confirm(
+        "Delete this saved case and its review history? This cannot be undone, and unsaved edits will be lost.",
+      )
+    ) return;
+    const id = active.id;
+    await perform("Deleting saved case", async () => {
+      await api<{ deleted: boolean }>("/cases/" + id, "DELETE");
+      setHistory(items => items.filter(item => item.id !== id));
+      pendingCreation.current = null;
+      showCase(null);
+      setTitle("");
+      setDescription("");
+      setSelected(["rb-scope"]);
+      setView("history");
+      setNotice("Saved case and review history deleted.");
+    });
+  }
+
   const bookName = (id: string) =>
     id === "incident"
       ? "Case details"
@@ -546,6 +567,14 @@ export default function App() {
                         )}
                       </>
                     )}
+                    <button
+                      className="button quiet"
+                      type="button"
+                      disabled={!!busy}
+                      onClick={deleteActiveCase}
+                    >
+                      Delete saved case
+                    </button>
                   </div>
                 ) : (
                   <form
