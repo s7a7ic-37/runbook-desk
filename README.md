@@ -13,7 +13,7 @@ A support-case workspace for drafting an investigation from selected runbooks, c
 - Browse the public, fictional runbook library while the case server connects or is unavailable. Case history and review actions require a server connection.
 - Edit the reply, then approve it or mark it for further investigation. The original and reviewed replies are retained.
 - If a saved draft changes before review, reload it after confirming whether to discard local edits. A rejected stale decision is not repeated automatically.
-- Download a reviewed case as a plain-text handoff with its decision, original and recorded replies, citations and selected procedures. Example provenance stays visible; no message is sent.
+- Download a reviewed case as a plain-text handoff with its current decision, each review's original and recorded reply snapshots, citations and selected procedures. Example provenance stays visible; no message is sent.
 - Try three clearly labelled illustrative examples without calling an AI service.
 
 Python/FastAPI serves a React/TypeScript interface and a REST API. PostgreSQL stores four tables: browser workspaces, cases, generation attempts and reviews. The OpenAI Responses API client requests a structured draft and validates its shape and selected-source references before saving it. The app cannot send messages or execute runbook steps.

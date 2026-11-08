@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 
 const runbooks = JSON.parse(readFileSync(new URL("../../../server/runbooks.json", import.meta.url)));
 const examples = JSON.parse(readFileSync(new URL("../../../server/examples.json", import.meta.url)));
@@ -293,6 +294,33 @@ test("source dialogs expose their procedure and return keyboard focus without lo
     await expect(reply).toHaveValue(edited);
   }
   expect(prompts).toEqual([]);
+});
+
+test("downloaded handoffs retain the replies recorded by every review", async ({ page }) => {
+  const reviews = [
+    {decision: "rejected", original_reply: "An earlier fictional draft — Łódź.", reviewed_reply: "An earlier recorded reply.", note: "Earlier evidence incomplete.", created_at: "2026-01-01T12:00:00Z"},
+    {decision: "approved", original_reply: example.draft.customer_reply, reviewed_reply: "The final fictional recorded reply.", note: "Later evidence checked.", created_at: "2026-01-02T12:00:00Z"},
+  ];
+  const record = {...example, id: "synthetic-export", mode: "example", state: "approved", version: 4,
+    reply: reviews[1].reviewed_reply, reviews, runs: [], created_at: reviews[0].created_at, updated_at: reviews[1].created_at};
+  await page.route("**/api/cases**", route => {
+    expect(route.request().method()).toBe("GET");
+    return route.fulfill({json: new URL(route.request().url()).pathname === "/api/cases" ? [record] : record});
+  });
+  await page.goto("/");
+  await page.getByRole("button", {name: "History", exact: true}).click();
+  await page.locator(".history-row").click();
+  const pending = page.waitForEvent("download");
+  await page.getByRole("button", {name: "Download case handoff", exact: true}).click();
+  const text = await readFile(await (await pending).path(), "utf8");
+  for (const [index, entry] of reviews.entries()) {
+    expect(text).toContain(`Review ${index + 1} · ${entry.created_at}`);
+    expect(text).toContain("REPLY BEFORE THIS REVIEW\n" + entry.original_reply);
+    expect(text).toContain("REPLY RECORDED BY THIS REVIEW\n" + entry.reviewed_reply);
+    expect(text).toContain(entry.note);
+  }
+  expect(text.indexOf("Review 1 ·")).toBeLessThan(text.indexOf("Review 2 ·"));
+  expect(text).toContain("illustrative draft, not an OpenAI response");
 });
 
 test("reviewed reply copying handles missing, denied and available clipboard access", async ({ page }) => {

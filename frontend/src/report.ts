@@ -31,8 +31,13 @@ export function caseReport(record: Case, runbooks: Runbook[]): string {
     "", "ORIGINAL DRAFT REPLY", record.draft.customer_reply,
     "", "RECORDED REPLY", record.reply,
     "", "REVIEW TRAIL",
-    ...record.reviews.map((entry) =>
-      `${entry.created_at} · ${entry.decision === "approved" ? "Approved" : "Needs investigation"}\n${entry.note}`),
+    ...record.reviews.map((entry, index) => [
+      `Review ${index + 1} · ${entry.created_at}`,
+      `Decision: ${entry.decision === "approved" ? "Approved" : "Needs investigation"}`,
+      `Note: ${entry.note}`,
+      "REPLY BEFORE THIS REVIEW", entry.original_reply,
+      "REPLY RECORDED BY THIS REVIEW", entry.reviewed_reply, "",
+    ].join("\n")),
     "", "SELECTED RUNBOOKS — CURRENT LIBRARY SNAPSHOT",
   ];
   for (const id of record.runbook_ids) {

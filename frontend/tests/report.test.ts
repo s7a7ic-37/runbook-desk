@@ -46,3 +46,21 @@ test("handoff refuses an unreviewed draft and explicitly marks missing procedure
   assert.match(report, /Unavailable source \(rb-retries\)/);
   assert.match(report, /current library does not contain this procedure/);
 });
+
+test("handoff retains each decision's reply snapshots in review order", () => {
+  const first = {...record.reviews[0], original_reply: "Earlier draft — Łódź.",
+    reviewed_reply: "First recorded reply.", note: "First decision note."};
+  const second = {...record.reviews[0], decision: "approved", original_reply: "Later regenerated draft.",
+    reviewed_reply: "Final recorded reply.", note: "Second decision note.", created_at: "2026-11-07T17:00:00Z"};
+  const reviewed = {...record, state: "approved" as const, reply: second.reviewed_reply, reviews: [first, second]};
+  const before = structuredClone(reviewed);
+  const report = caseReport(reviewed, runbooks);
+  for (const [index, entry] of reviewed.reviews.entries()) {
+    assert.ok(report.includes(`Review ${index + 1} · ${entry.created_at}`));
+    assert.ok(report.includes("REPLY BEFORE THIS REVIEW\n" + entry.original_reply));
+    assert.ok(report.includes("REPLY RECORDED BY THIS REVIEW\n" + entry.reviewed_reply));
+    assert.ok(report.includes(entry.note));
+  }
+  assert.ok(report.indexOf("Review 1 ·") < report.indexOf("Review 2 ·"));
+  assert.deepEqual(reviewed, before);
+});
