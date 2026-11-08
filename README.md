@@ -5,6 +5,7 @@
 A support-case workspace for drafting an investigation from selected runbooks, checking its sources and reviewing a customer reply before approval.
 
 - Save cases and revisit their draft, model attempts and review history.
+- Find saved cases by title without sending the search text to the server; refreshing history keeps the search in place.
 - Delete a saved case and its review history from the current workspace when the API advertises deletion support. Older API deployments keep this control hidden.
 - Retry an interrupted save with unchanged details to recover the same case, without creating a duplicate.
 - Refresh history after a connection interruption to check which cases reached the server without repeating the save.

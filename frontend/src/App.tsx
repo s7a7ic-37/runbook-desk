@@ -10,6 +10,9 @@ type View = "desk" | "library" | "history";
 export default function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [history, setHistory] = useState<CaseSummary[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
+  const historyTerm = historySearch.trim().toLowerCase();
+  const matchingHistory = history.filter(item => item.title.toLowerCase().includes(historyTerm));
   const [active, setActive] = useState<Case | null>(null);
   const [view, setView] = useState<View>("desk");
   const [title, setTitle] = useState("");
@@ -478,8 +481,15 @@ export default function App() {
                 </button>
               </div>
               {history.length ? (
+                <>
+                <div className="history-search">
+                  <label className="field-label" htmlFor="history-search">Find a saved case</label>
+                  <input id="history-search" type="search" value={historySearch}
+                    onChange={(event) => setHistorySearch(event.target.value)} />
+                  <p className="help" role="status">{matchingHistory.length} of {history.length} saved cases</p>
+                </div>
                 <div className="history-list">
-                  {history.map((item) => (
+                  {matchingHistory.map((item) => (
                     <button
                       className="history-row"
                       key={item.id}
@@ -507,7 +517,14 @@ export default function App() {
                       <span aria-hidden="true">↗</span>
                     </button>
                   ))}
+                  {!matchingHistory.length && (
+                    <div className="empty">
+                      <p>No saved cases match this title.</p>
+                      <button className="button secondary" type="button" onClick={() => setHistorySearch("")}>Clear search</button>
+                    </div>
+                  )}
                 </div>
+                </>
               ) : (
                 <div className="empty">
                   <h3>Nothing saved yet.</h3>

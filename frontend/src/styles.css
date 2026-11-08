@@ -927,6 +927,9 @@ legend > span {
   color: var(--ink);
   padding: 22px;
 }
+.history-search { padding: 20px 22px; border-bottom: 1px solid var(--line); }
+.history-search input { width: 100%; }
+.history-search .help { margin-bottom: 0; }
 .history-row:hover:not(:disabled) {
   background: var(--soft);
 }

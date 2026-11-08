@@ -24,6 +24,50 @@ test.beforeEach(async ({ context }) => {
   await context.route("https://portfolio.artemislab.co.uk/**", route => route.fulfill({ body: "Projects placeholder" }));
 });
 
+test("saved-case search stays local and survives refresh and case navigation", async ({ page }) => {
+  const records = ["Webhook retries — Łódź", "Invoice [draft] mismatch", "Delayed report"].map((title, index) => ({
+    ...example, id: "synthetic-search-" + index, title, mode: "example", state: "draft", version: 1,
+    reply: example.draft.customer_reply, reviews: [], runs: [], created_at: "2026-01-01T12:00:00Z", updated_at: "2026-01-01T12:00:00Z",
+  }));
+  let reads = 0;
+  await page.route("**/api/cases**", route => {
+    expect(route.request().method()).toBe("GET");
+    reads += 1;
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({json: path === "/api/cases" ? records : records.find(record => path.endsWith("/" + record.id))});
+  });
+  await page.goto("/");
+  await page.getByRole("button", {name: "History", exact: true}).click();
+  const search = page.getByLabel("Find a saved case", {exact: true});
+  await expect(search).toHaveCount(1);
+  const initialReads = reads;
+  await search.fill(" ŁÓDŹ ");
+  await expect(page.locator(".history-row")).toHaveCount(1);
+  await expect(page.locator(".history-row")).toContainText(records[0].title);
+  await search.fill(".+");
+  await expect(page.getByText("No saved cases match this title.", {exact: true})).toBeVisible();
+  expect(reads).toBe(initialReads);
+  await page.getByRole("button", {name: "Clear search", exact: true}).click();
+  await expect(page.locator(".history-row")).toHaveCount(3);
+  await search.fill("webhook");
+  records.push({...records[0], id: "synthetic-search-3", title: "Webhook delivery checks"});
+  await page.getByRole("button", {name: "Refresh history", exact: true}).click();
+  await expect(search).toHaveValue("webhook");
+  await expect(page.locator(".history-row")).toHaveCount(2);
+  await search.fill("Invoice [draft]");
+  await page.locator(".history-row").click();
+  await expect(page.getByRole("heading", {name: records[1].title, exact: true})).toBeVisible();
+  await page.getByRole("button", {name: "History", exact: true}).click();
+  await expect(search).toHaveValue("Invoice [draft]");
+  await expect(page.locator(".history-row")).toHaveCount(1);
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({width, height: 900});
+    expect(await page.evaluate(() => innerWidth)).toBe(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect((await search.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test("brand navigation protects case edits and permits an explicit reset", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Case title", { exact: true }).fill("Unsaved fictional case");
