@@ -1,10 +1,18 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 
 class InputModel(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+
+    @field_validator('*')
+    @classmethod
+    def reject_null_characters(cls, value):
+        items = value if isinstance(value, list) else [value]
+        if any(isinstance(item, str) and '\0' in item for item in items):
+            raise ValueError('Text cannot contain null characters.')
+        return value
 
 
 class CaseInput(InputModel):

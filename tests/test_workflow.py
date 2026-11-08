@@ -55,6 +55,30 @@ def test_example_edits_review_history_and_conflict(clients):
     assert len(client.get('/api/cases').json()) == 1
 
 
+@pytest.mark.parametrize('field', ['title', 'description'])
+def test_null_case_text_is_rejected_without_saving(clients, field):
+    client = clients()
+    result = client.post('/api/cases', json={**CASE, field: CASE[field] + '\0private-marker'})
+    assert result.status_code == 422
+    assert 'private-marker' not in result.text
+    assert client.get('/api/cases').json() == []
+
+
+@pytest.mark.parametrize('field', ['reply', 'note'])
+def test_null_review_text_preserves_the_saved_draft(clients, field):
+    client = clients()
+    case = client.post('/api/examples/webhook-retries').json()
+    review = {'version': case['version'], 'decision': 'approved',
+              'reply': case['reply'], 'note': 'Checked the selected sources.'}
+    review[field] += '\0private-marker'
+    result = client.post(f"/api/cases/{case['id']}/review", json=review)
+    assert result.status_code == 422
+    assert 'private-marker' not in result.text
+    saved = client.get(f"/api/cases/{case['id']}").json()
+    assert saved['version'] == case['version'] and saved['reply'] == case['reply']
+    assert saved['state'] == 'draft' and saved['reviews'] == []
+
+
 def test_delete_case_removes_review_text_but_keeps_usage_limit(clients):
     client = clients(limit=1, handler=lambda request: completed())
     case = new_case(client)
@@ -157,7 +181,8 @@ def test_real_request_shape_and_idempotency(clients):
 @pytest.mark.parametrize('kind,code', [
     ('busy', 'provider_busy'), ('error', 'provider_error'), ('timeout', 'provider_timeout'),
     ('refusal', 'provider_refusal'), ('incomplete', 'incomplete_response'),
-    ('invalid', 'invalid_draft'), ('citations', 'invalid_draft'), ('usage', 'invalid_draft')])
+    ('invalid', 'invalid_draft'), ('citations', 'invalid_draft'), ('usage', 'invalid_draft'),
+    ('null_text', 'invalid_draft')])
 def test_provider_failures_are_saved_and_sanitized(clients, kind, code):
     def handler(request):
         if kind == 'busy': return httpx.Response(429, text='private-provider-detail')
@@ -171,6 +196,10 @@ def test_provider_failures_are_saved_and_sanitized(clients, kind, code):
             body = completed().json()
             body['usage']['input_tokens'] = 'bad'
             return httpx.Response(200, json=body)
+        if kind == 'null_text':
+            draft = copy.deepcopy(DRAFT)
+            draft['summary'] += '\0private-provider-detail'
+            return completed(draft)
         draft = copy.deepcopy(DRAFT)
         draft['checks'][0]['source_ids'] = ['invented']
         return completed(draft)
@@ -193,6 +222,17 @@ def test_citations_must_include_selected_runbook():
         Draft.model_validate(draft, context={'source_ids': CASE['runbook_ids']})
     for example in EXAMPLES:
         Draft.model_validate(example['draft'], context={'source_ids': example['runbook_ids']})
+
+
+@pytest.mark.parametrize('field', ['summary', 'observation', 'check', 'missing_information'])
+def test_nested_draft_text_rejects_null_characters(field):
+    draft = copy.deepcopy(DRAFT)
+    if field == 'summary': draft['summary'] += '\0'
+    if field == 'observation': draft['observations'][0]['statement'] += '\0'
+    if field == 'check': draft['checks'][0]['reason'] += '\0'
+    if field == 'missing_information': draft['missing_information'] = ['A missing detail\0']
+    with pytest.raises(ValidationError, match='null characters'):
+        Draft.model_validate(draft, context={'source_ids': CASE['runbook_ids']})
 
 
 def test_concurrent_calls_reserve_budget_before_provider(clients):
