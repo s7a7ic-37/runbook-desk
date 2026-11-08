@@ -38,6 +38,8 @@ jobs:
         working-directory: frontend
       - run: npm run test:browser
         working-directory: frontend
+      - name: Build the deployment image
+        run: docker build --tag runbook-desk:ci .
       - name: Scan published frontend for credentials
         run: >-
           docker run --rm --network none --read-only
