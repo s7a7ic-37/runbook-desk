@@ -82,6 +82,7 @@ def test_delete_is_workspace_scoped_and_rejects_active_generation(clients):
     owner, stranger = clients(), clients()
     case = new_case(owner)
     route = f"/api/cases/{case['id']}"
+    assert owner.delete(route, headers={'Origin': 'https://untrusted.invalid'}).status_code == 403
     assert stranger.delete(route).status_code == 404
     assert owner.get(route).status_code == 200
     with db.connection(URL) as conn:
