@@ -49,7 +49,7 @@ export default function App() {
       await api("/workspace", "POST");
     } catch (e) {
       if (!(e instanceof ApiError) || !e.retryAfterWake) throw e;
-      setBusy("The case server is waking up. Retrying the connection in a minute.");
+      setBusy("The case server is waking up. Retrying automatically in a minute.");
       // shortcut: retry one hosting challenge after Render's wake window; use an always-on host if cold starts persist.
       await new Promise(resolve => window.setTimeout(resolve, 60_000));
       await api("/workspace", "POST");

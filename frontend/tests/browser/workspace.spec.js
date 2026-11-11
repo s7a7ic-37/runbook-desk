@@ -53,7 +53,7 @@ test("first workspace request retries once after a hosting challenge", async ({p
     return route.fulfill({json: {ready: true}});
   });
   await page.goto("/");
-  await expect(page.getByRole("status")).toContainText("waking up. Retrying the connection in a minute.");
+  await expect(page.getByRole("status")).toContainText("waking up. Retrying automatically in a minute.");
   await page.clock.fastForward(60_000);
   await expect(page.locator(".connection")).toHaveText("Example mode");
   expect(attempts).toBe(2);

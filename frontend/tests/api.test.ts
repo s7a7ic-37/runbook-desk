@@ -38,7 +38,7 @@ test('API requests keep cookies and surface useful errors without exposing raw r
     await assert.rejects(api('/workspace', 'POST'), (error: unknown) => {
       assert.ok(error instanceof ApiError);
       assert.equal(error.retryAfterWake, true);
-      assert.match(error.message, /waking up.*in a minute/);
+      assert.match(error.message, /still waking up.*select Retry connection/);
       assert.doesNotMatch(error.message, /case history|Just a moment/);
       return true;
     });
