@@ -43,6 +43,22 @@ test("workspace navigation focuses its destination without changing review edits
   await expect(reply).toBeFocused();
 });
 
+test("first workspace request retries once after a hosting challenge", async ({page}) => {
+  await page.clock.install();
+  let attempts = 0;
+  await page.route("**/api/workspace", route => {
+    attempts++;
+    if (attempts === 1)
+      return route.fulfill({status: 429, contentType: "text/html", headers: {"cf-mitigated": "challenge"}, body: "<html>Just a moment...</html>"});
+    return route.fulfill({json: {ready: true}});
+  });
+  await page.goto("/");
+  await expect(page.getByRole("status")).toContainText("waking up. Retrying the connection in a minute.");
+  await page.clock.fastForward(60_000);
+  await expect(page.locator(".connection")).toHaveText("Example mode");
+  expect(attempts).toBe(2);
+});
+
 test("saved-case search stays local and survives refresh and case navigation", async ({ page }) => {
   const records = ["Webhook retries — Łódź", "Invoice [draft] mismatch", "Delayed report"].map((title, index) => ({
     ...example, id: "synthetic-search-" + index, title, mode: "example", state: "draft", version: 1,

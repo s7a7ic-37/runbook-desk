@@ -27,7 +27,26 @@ test('API requests keep cookies and surface useful errors without exposing raw r
       assert.ok(error instanceof ApiError);
       assert.equal(error.status, 429);
       assert.match(error.message, /temporarily limiting connections.*Wait a minute/);
+      assert.equal(error.retryAfterWake, true);
       assert.doesNotMatch(error.message, /html|Just a moment/);
+      return true;
+    });
+    globalThis.fetch = async () => new Response('<html>Just a moment...</html>', {
+      status: 429,
+      headers: {'cf-mitigated': 'challenge', 'content-type': 'text/html'},
+    });
+    await assert.rejects(api('/workspace', 'POST'), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.retryAfterWake, true);
+      assert.match(error.message, /waking up.*in a minute/);
+      assert.doesNotMatch(error.message, /case history|Just a moment/);
+      return true;
+    });
+    globalThis.fetch = async () => Response.json({error: {message: 'The demo is full.'}}, {status: 429});
+    await assert.rejects(api('/workspace', 'POST'), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.retryAfterWake, false);
+      assert.equal(error.message, 'The demo is full.');
       return true;
     });
     for (const status of [503, 504]) {

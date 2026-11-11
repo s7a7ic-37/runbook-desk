@@ -1,8 +1,10 @@
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  retryAfterWake: boolean;
+  constructor(message: string, status: number, retryAfterWake = false) {
     super(message);
     this.status = status;
+    this.retryAfterWake = retryAfterWake;
   }
 }
 
@@ -41,6 +43,11 @@ export async function api<T>(
     return null;
   });
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") || "";
+    const upstreamLimit = response.status === 429 &&
+      (response.headers.get("cf-mitigated") === "challenge" || !contentType.includes("json"));
+    if (path === "/workspace" && upstreamLimit)
+      throw new ApiError("The case server is waking up. Retrying the connection in a minute.", response.status, true);
     const fallback = response.status === 429
       ? "The case server is temporarily limiting connections. Wait a minute, then retry."
       : [502, 503, 504].includes(response.status)
@@ -49,6 +56,7 @@ export async function api<T>(
     throw new ApiError(
       data?.error?.message || fallback + (method === "GET" ? "" : " " + recovery),
       response.status,
+      upstreamLimit,
     );
   }
   if (data === null)
