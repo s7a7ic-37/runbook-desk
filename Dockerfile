@@ -3,7 +3,7 @@ WORKDIR /build/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-COPY server/runbooks.json ../server/runbooks.json
+COPY server/runbooks.json server/examples.json ../server/
 RUN npm run build
 
 FROM python:3.13-slim
