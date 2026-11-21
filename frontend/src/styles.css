@@ -1004,6 +1004,15 @@ footer a {
   color: var(--muted);
   font-size: 11px;
 }
+.example-preview h3 {
+  margin: 20px 0 0;
+  font-size: 15px;
+}
+.example-preview ul {
+  padding-inline-start: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+}
 .sr-only {
   position: absolute;
   width: 1px;

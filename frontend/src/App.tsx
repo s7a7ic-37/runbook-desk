@@ -4,8 +4,10 @@ import { stateLabel, timeLabel } from "./format";
 import { caseReport } from "./report";
 import type { Case, CaseSummary, Config } from "./types";
 import publicRunbooks from "../../server/runbooks.json";
+import publicExamples from "../../server/examples.json";
 
 type View = "desk" | "library" | "history";
+const [workedExample] = publicExamples;
 
 export default function App() {
   const [config, setConfig] = useState<Config | null>(null);
@@ -29,6 +31,8 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [source, setSource] = useState<string | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const examplePreview = useRef<HTMLDialogElement>(null);
+  const previewTrigger = useRef<HTMLButtonElement>(null);
   const caseForm = useRef<HTMLFormElement>(null);
   const reviewForm = useRef<HTMLFormElement>(null);
   const pendingCreation = useRef<{ input: string; key: string } | null>(null);
@@ -487,6 +491,9 @@ export default function App() {
             <div className="loading-panel" role="status">
               {busy && <span className="spinner" />}
               {busy || "Workspace unavailable. Retry the connection to use saved cases."}
+              <button ref={previewTrigger} className="button primary" type="button" onClick={() => examplePreview.current?.showModal()}>
+                Read a worked example
+              </button>
               <button className="button secondary" type="button" onClick={() => setView("library")}>Read runbooks</button>
             </div>
           ) : view === "history" ? (
@@ -956,6 +963,30 @@ export default function App() {
           </footer>
         </main>
       </div>
+      <dialog
+        ref={examplePreview}
+        className="source-dialog example-preview"
+        aria-labelledby="worked-example-title"
+        onClose={event => {
+          if (!event.currentTarget.open) (previewTrigger.current || pageHeading.current)?.focus();
+        }}
+      >
+        <div className="dialog-heading">
+          <p className="section-label">Read-only example</p>
+          <button className="button quiet" type="button" onClick={() => examplePreview.current?.close()}>
+            Close example
+          </button>
+        </div>
+        <h2 id="worked-example-title">{workedExample.title}</h2>
+        <p>{workedExample.description}</p>
+        <h3>Investigation summary</h3>
+        <p>{workedExample.draft.summary}</p>
+        <h3>Suggested checks</h3>
+        <ul>{workedExample.draft.checks.map(check => <li key={check.action}>{check.action}</li>)}</ul>
+        <h3>Illustrative reply</h3>
+        <p>{workedExample.draft.customer_reply}</p>
+        <small>This fictional preview does not open or save a case.</small>
+      </dialog>
       <dialog
         ref={dialog}
         className="source-dialog"

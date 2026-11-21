@@ -348,6 +348,55 @@ test("runbooks stay readable when the case server is unavailable", async ({ page
   await expect(page.getByText("Read-only library.", { exact: false })).toBeVisible();
 });
 
+test("the read-only example stays open while the workspace connects", async ({ page }) => {
+  let connect;
+  const connection = new Promise(resolve => { connect = resolve; });
+  const writes = [];
+  page.on("request", request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith("/api/") && request.method() !== "GET") writes.push(path);
+  });
+  await page.route("**/api/workspace", async route => {
+    await connection;
+    return route.fulfill({ json: { ready: true } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Read a worked example", exact: true }).click();
+  const preview = page.getByRole("dialog", { name: example.title, exact: true });
+  await expect(preview).toBeVisible();
+  await expect(preview.getByText(example.draft.summary, { exact: true })).toBeVisible();
+  await expect(preview.getByText(example.draft.customer_reply, { exact: true })).toBeVisible();
+  await expect(preview.getByRole("textbox")).toHaveCount(0);
+  connect();
+  await expect(page.locator(".connection")).toHaveText("Example mode");
+  await expect(preview).toBeVisible();
+  await preview.getByRole("button", { name: "Close example", exact: true }).click();
+  await expect(preview).not.toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  await expect(page.getByLabel("Case title", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Try a worked example", exact: true })).toBeEnabled();
+  expect(writes).toEqual(["/api/workspace"]);
+});
+
+test("the read-only example fits narrow screens while the case server is unavailable", async ({ page }) => {
+  await page.route("**/api/workspace", route => route.fulfill({ status: 503, json: { error: { message: "Synthetic unavailable server" } } }));
+  await page.goto("/");
+  await expect(page.getByRole("alert")).toContainText("Synthetic unavailable server");
+  const trigger = page.getByRole("button", { name: "Read a worked example", exact: true });
+  await trigger.click();
+  const preview = page.getByRole("dialog", { name: example.title, exact: true });
+  await expect(preview).toBeVisible();
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => innerWidth)).toBe(width);
+    expect(await preview.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(preview).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("button", { name: "Retry connection", exact: true })).toBeEnabled();
+});
+
 test("source dialogs expose their procedure and return keyboard focus without losing edits", async ({ page }) => {
   await page.goto("/");
   const picker = page.locator("#mobile-example");

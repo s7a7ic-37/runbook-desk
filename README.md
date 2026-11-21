@@ -11,7 +11,7 @@ A support-case workspace for drafting an investigation from selected runbooks, c
 - Refresh history after a connection interruption to check which cases reached the server without repeating the save.
 - Confirm before replacing unsaved case details, runbook choices or review edits.
 - Read the runbooks cited by each observation and proposed check.
-- Browse the public, fictional runbook library while the case server connects or is unavailable. Case history and review actions require a server connection.
+- Read a fictional worked example or browse the runbook library while the case server connects or is unavailable. Saving an example and reviewing cases need a server connection.
 - Edit the reply, then approve it or mark it for further investigation. The original and reviewed replies are retained.
 - If a saved draft changes before review, reload it after confirming whether to discard local edits. A rejected stale decision is not repeated automatically.
 - Download a reviewed case as a plain-text handoff with its current decision, each review's original and recorded reply snapshots, citations and selected procedures. Example provenance stays visible; no message is sent.
