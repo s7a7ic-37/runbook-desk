@@ -47,7 +47,7 @@ export async function api<T>(
     const upstreamLimit = response.status === 429 &&
       (response.headers.get("cf-mitigated") === "challenge" || !contentType.includes("json"));
     if (path === "/workspace" && upstreamLimit)
-      throw new ApiError("The case server is still waking up. Wait a minute, then select Retry connection.", response.status, true);
+      throw new ApiError("The case server is unavailable. Select Retry connection to try again.", response.status, true);
     const fallback = response.status === 429
       ? "The case server is temporarily limiting connections. Wait a minute, then retry."
       : [502, 503, 504].includes(response.status)
