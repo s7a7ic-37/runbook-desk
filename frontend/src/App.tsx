@@ -389,14 +389,6 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="sidebar-bottom">
-            <span className="small-mark">RD / 01</span>
-            <p>
-              From incident notes
-              <br />
-              to a considered response.
-            </p>
-          </div>
         </aside>
 
         <main id="main">
@@ -428,26 +420,16 @@ export default function App() {
             </select>
           </div>
           <div className="page-heading">
-            <div>
-              <p className="eyebrow">A support engineer’s workspace</p>
-              <h1 ref={pageHeading} tabIndex={-1}>
-                {view === "library"
-                  ? "The runbook library."
-                  : view === "history"
-                    ? "Your case history."
-                    : "A clear next step."}
-              </h1>
-              <p className="intro">
-                {view === "library"
-                  ? "The sources behind each suggestion. These are fictional procedures for this demo."
-                  : view === "history"
-                    ? "Reopen a case to see its original draft, review decision and saved reply."
-                    : "Draft an investigation plan from the runbooks you choose, then review the customer reply."}
-              </p>
-            </div>
-            <span className="page-number" aria-hidden="true">
-              {view === "desk" ? "01" : view === "library" ? "02" : "03"}
-            </span>
+            <h1 ref={pageHeading} tabIndex={-1}>
+              {view === "library" ? "Runbook library" : view === "history" ? "Case history" : "Support cases"}
+            </h1>
+            <p className="intro">
+              {view === "library"
+                ? "Fictional procedures used in the example cases."
+                : view === "history"
+                  ? "Open a saved case to see its draft, review and reply."
+                  : "Review support cases and the runbooks they cite."}
+            </p>
           </div>
           {error && (
             <div className="alert" role="alert">

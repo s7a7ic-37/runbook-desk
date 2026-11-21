@@ -33,9 +33,9 @@ test("workspace navigation focuses its destination without changing review edits
   const edited = "Fictional review edits retained while browsing the workspace.";
   await reply.fill(edited);
   await page.getByRole("button", {name: "Runbooks", exact: true}).click();
-  await expect(page.getByRole("heading", {name: "The runbook library.", exact: true})).toBeFocused();
+  await expect(page.getByRole("heading", {name: "Runbook library", exact: true})).toBeFocused();
   await page.getByRole("button", {name: "History", exact: true}).click();
-  await expect(page.getByRole("heading", {name: "Your case history.", exact: true})).toBeFocused();
+  await expect(page.getByRole("heading", {name: "Case history", exact: true})).toBeFocused();
   await page.getByRole("button", {name: "Workspace", exact: true}).click();
   await expect(heading).toBeFocused();
   await expect(reply).toHaveValue(edited);
@@ -305,7 +305,7 @@ test("deleting a saved case requires confirmation and removes it from history", 
   await expect(page.getByRole("heading", { name: "Saved in your workspace", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Nothing saved yet.", exact: true })).toBeVisible();
   await expect(page.getByText("Saved case and review history deleted.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", {name: "Your case history.", exact: true})).toBeFocused();
+  await expect(page.getByRole("heading", {name: "Case history", exact: true})).toBeFocused();
   expect(prompts).toHaveLength(2);
   expect(prompts[0]).toContain("unsaved edits will be lost");
   expect(deleted).toHaveLength(1);
