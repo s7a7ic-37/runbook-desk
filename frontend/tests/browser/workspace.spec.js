@@ -386,6 +386,17 @@ test("the read-only example fits narrow screens while the case server is unavail
   await trigger.click();
   const preview = page.getByRole("dialog", { name: example.title, exact: true });
   await expect(preview).toBeVisible();
+  const book = runbooks.find(item => item.id === example.draft.checks[0].source_ids[0]);
+  await page.setViewportSize({ width: 320, height: 700 });
+  const source = preview.locator("summary").filter({ hasText: book.title });
+  const procedure = preview.getByText(book.body, { exact: true });
+  await expect(procedure).toBeHidden();
+  await source.focus();
+  await page.keyboard.press("Enter");
+  await expect(procedure).toBeVisible();
+  await expect(source).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(procedure).toBeHidden();
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => innerWidth)).toBe(width);

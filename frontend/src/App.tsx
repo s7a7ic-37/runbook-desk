@@ -982,7 +982,23 @@ export default function App() {
         <h3>Investigation summary</h3>
         <p>{workedExample.draft.summary}</p>
         <h3>Suggested checks</h3>
-        <ul>{workedExample.draft.checks.map(check => <li key={check.action}>{check.action}</li>)}</ul>
+        <ul>
+          {workedExample.draft.checks.map(check => (
+            <li key={check.action}>
+              {check.action}
+              {check.source_ids.map(id => {
+                const book = publicRunbooks.find(book => book.id === id);
+                if (!book) return null;
+                return (
+                  <details key={id}>
+                    <summary>{book.title}</summary>
+                    <p>{book.body}</p>
+                  </details>
+                );
+              })}
+            </li>
+          ))}
+        </ul>
         <h3>Illustrative reply</h3>
         <p>{workedExample.draft.customer_reply}</p>
         <small>This fictional preview does not open or save a case.</small>

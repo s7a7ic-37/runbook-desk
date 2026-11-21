@@ -1013,6 +1013,17 @@ footer a {
   font-size: 14px;
   line-height: 1.7;
 }
+.example-preview summary {
+  min-height: 44px;
+  padding-block: 10px;
+  color: var(--blue);
+  font-weight: 700;
+  cursor: pointer;
+}
+.example-preview details p {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
 .sr-only {
   position: absolute;
   width: 1px;
