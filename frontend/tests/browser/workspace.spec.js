@@ -59,6 +59,29 @@ test("first workspace request retries once after a hosting challenge", async ({p
   expect(attempts).toBe(2);
 });
 
+test("startup retries challenged reads without reopening the workspace", async ({page}) => {
+  await page.clock.install();
+  let posts = 0;
+  let reads = 0;
+  await page.route("**/api/workspace", route => {
+    expect(route.request().method()).toBe("POST");
+    posts++;
+    return route.fulfill({json: {ready: true}});
+  });
+  await page.route("**/api/config", route => {
+    reads++;
+    if (reads === 1)
+      return route.fulfill({status: 429, contentType: "text/html", headers: {"cf-mitigated": "challenge"}, body: "<html>Wait for the host</html>"});
+    return route.fallback();
+  });
+  await page.goto("/");
+  await expect(page.getByRole("status")).toContainText("unavailable. Retrying in one minute.");
+  await page.clock.fastForward(60_000);
+  await expect(page.locator(".connection")).toHaveText("Example mode");
+  expect(reads).toBe(2);
+  expect(posts).toBe(1);
+});
+
 test("saved-case search stays local and survives refresh and case navigation", async ({ page }) => {
   const records = ["Webhook retries — Łódź", "Invoice [draft] mismatch", "Delayed report"].map((title, index) => ({
     ...example, id: "synthetic-search-" + index, title, mode: "example", state: "draft", version: 1,

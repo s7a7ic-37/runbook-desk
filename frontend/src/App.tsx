@@ -49,16 +49,23 @@ export default function App() {
   }
 
   async function initialize() {
+    let opened = false;
+    async function connect() {
+      if (!opened) {
+        await api("/workspace", "POST");
+        opened = true;
+      }
+      await refreshWorkspace();
+    }
     try {
-      await api("/workspace", "POST");
+      await connect();
     } catch (e) {
       if (!(e instanceof ApiError) || !e.retryAfterWake) throw e;
       setBusy("The case server is unavailable. Retrying in one minute.");
       // shortcut: retry one hosting challenge after Render's wake window; use an always-on host if cold starts persist.
       await new Promise(resolve => window.setTimeout(resolve, 60_000));
-      await api("/workspace", "POST");
+      await connect();
     }
-    await refreshWorkspace();
   }
 
   async function createCase(path: string, body?: unknown) {
